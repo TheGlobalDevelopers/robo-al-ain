@@ -10,7 +10,7 @@ import { SiteSettings } from "@/types/settings";
 import { AdminNotification } from "@/types/notification";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { toast } from "sonner";
-import { Bell } from "lucide-react";
+import { Bell, Copy } from "lucide-react";
 
 interface AdminProps {
   products: Product[];
@@ -75,6 +75,7 @@ const Admin = ({
   const [password, setPassword] = useState("");
   const [authError, setAuthError] = useState("");
   const [showBell, setShowBell] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [newOffer, setNewOffer] = useState({ productId: "", title: "", description: "", discountPercent: "10" });
   const [newProduct, setNewProduct] = useState({ name: "", price: "", category: "", image: "", unit: "", originalPrice: "" });
   const navigate = useNavigate();
@@ -120,6 +121,15 @@ const Admin = ({
     }
   };
 
+  const copyText = async (value: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      toast.success(`Copied: ${value}`);
+    } catch {
+      toast.error("Copy failed");
+    }
+  };
+
   const addProduct = () => {
     if (!newProduct.name || !newProduct.price || !newProduct.category || !newProduct.image || !newProduct.unit) {
       toast.error("Please complete all product fields.");
@@ -143,8 +153,8 @@ const Admin = ({
         inStock: true,
       },
     ]);
-    addNotification(`New product added: ${newProduct.name}`, "product");
-    toast.success("Product added live.");
+    addNotification(`New product added: ${newProduct.name} (ID: ${nextId})`, "product");
+    toast.success(`Product added live with ID ${nextId}.`);
     setNewProduct({ name: "", price: "", category: "", image: "", unit: "", originalPrice: "" });
   };
 
@@ -172,13 +182,13 @@ const Admin = ({
     <div className="min-h-screen bg-background" dir={language === "ar" ? "rtl" : "ltr"}>
       <header className="border-b border-border bg-card sticky top-0 z-20">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
-          <div className="flex items-center gap-3">
+          <button type="button" className="flex items-center gap-3 text-left" onClick={() => navigate("/")}>
             <div className="w-11 h-11 rounded-lg bg-primary flex items-center justify-center overflow-hidden"><img src={roboLogoDataUrl} alt="Robo Al Ain logo" className="h-9 w-9 object-contain" /></div>
             <div>
               <div className="text-xl font-bold">Roboo Al Ain Admin</div>
               <div className="text-sm text-muted-foreground">Live control panel</div>
             </div>
-          </div>
+          </button>
           <div className="flex items-center gap-2 relative">
             <Button variant="outline" size="sm" onClick={() => setLanguage((prev) => (prev === "en" ? "ar" : "en"))}>{t.lang}</Button>
             <Button variant="outline" size="icon" onClick={() => setShowBell((prev) => !prev)} className="relative">
@@ -242,10 +252,13 @@ const Admin = ({
               </div>
               <Button onClick={addProduct}>{t.save}</Button>
 
-              <h3 className="text-xl font-semibold pt-2">Live Price Management</h3>
+              <h3 className="text-xl font-semibold pt-2">Live Price Management + Product IDs</h3>
               {products.map((product) => (
-                <div key={product.id} className="grid grid-cols-1 md:grid-cols-[1fr_160px_160px_120px] gap-2 items-center border border-border rounded-lg p-2">
+                <div key={product.id} className="grid grid-cols-1 md:grid-cols-[1fr_140px_160px_120px_120px] gap-2 items-center border border-border rounded-lg p-2">
                   <div>{product.name}</div>
+                  <Button type="button" variant="outline" size="sm" className="justify-between" onClick={() => copyText(String(product.id))}>
+                    ID #{product.id} <Copy className="h-4 w-4" />
+                  </Button>
                   <Input value={product.category} onChange={(event) => onProductsChange(products.map((item) => item.id === product.id ? { ...item, category: event.target.value } : item))} />
                   <Input type="number" value={product.price} onChange={(event) => onProductsChange(products.map((item) => item.id === product.id ? { ...item, price: Number(event.target.value) } : item))} />
                   <Button variant="outline" onClick={() => { addNotification(`Price updated for ${product.name}`, "product"); toast.success("Updated live"); }}>Save</Button>
@@ -263,9 +276,14 @@ const Admin = ({
                 <Input placeholder="Discount %" type="number" value={newOffer.discountPercent} onChange={(event) => setNewOffer((prev) => ({ ...prev, discountPercent: event.target.value }))} />
                 <Input placeholder="Description" value={newOffer.description} onChange={(event) => setNewOffer((prev) => ({ ...prev, description: event.target.value }))} />
               </div>
+              <p className="text-xs text-muted-foreground">Tip: Use product IDs from Prices page (copy button).</p>
               <Button onClick={() => {
                 const productId = Number(newOffer.productId);
-                if (!productId || !newOffer.title.trim()) return;
+                const product = products.find((item) => item.id === productId);
+                if (!productId || !newOffer.title.trim() || !product) {
+                  toast.error("Enter valid product ID and title.");
+                  return;
+                }
                 const nextOffer: Offer = { id: Date.now(), productId, title: newOffer.title, description: newOffer.description, discountPercent: Number(newOffer.discountPercent || 0), active: true, createdAt: new Date().toLocaleString() };
                 onOffersChange([nextOffer, ...offers]);
                 addNotification(`New offer created: ${nextOffer.title}`, "offer");
@@ -280,7 +298,43 @@ const Admin = ({
             </section>
           )}
 
-          {section === "/requests" && <section className="bg-card rounded-2xl p-6 shadow-card space-y-4"><h2 className="text-2xl font-bold">Requests</h2>{orders.map((order) => <div key={order.id} className="border border-border rounded-xl p-3"><div className="flex justify-between gap-2"><p className="font-medium">{order.customer}</p><p className="text-sm text-muted-foreground">{order.date}</p></div><p className="text-sm text-muted-foreground">{order.fulfillment} - {order.address}</p><p className="font-semibold mt-2">AED {order.total.toFixed(2)}</p></div>)}</section>}
+          {section === "/requests" && (
+            <section className="bg-card rounded-2xl p-6 shadow-card space-y-4">
+              <h2 className="text-2xl font-bold">Requests</h2>
+              <div className="grid lg:grid-cols-[1fr_320px] gap-4">
+                <div className="space-y-3">
+                  {orders.map((order) => (
+                    <button key={order.id} type="button" className="w-full text-left border border-border rounded-xl p-3 hover:border-primary transition-colors" onClick={() => setSelectedOrder(order)}>
+                      <div className="flex justify-between gap-2"><p className="font-medium">{order.customer}</p><p className="text-sm text-muted-foreground">{order.date}</p></div>
+                      <p className="text-sm text-muted-foreground">{order.fulfillment} - {order.address}</p>
+                      <p className="font-semibold mt-2">AED {order.total.toFixed(2)}</p>
+                    </button>
+                  ))}
+                </div>
+                <div className="border border-border rounded-xl p-4 bg-secondary/30">
+                  {selectedOrder ? (
+                    <div className="space-y-2 text-sm">
+                      <h3 className="font-bold text-base">Request details</h3>
+                      <p><strong>Name:</strong> {selectedOrder.customer}</p>
+                      <p><strong>Phone:</strong> {selectedOrder.phone || "-"}</p>
+                      <p><strong>Address:</strong> {selectedOrder.address || "-"}</p>
+                      <p><strong>Payment:</strong> {selectedOrder.paymentMethod}</p>
+                      <p><strong>Fulfillment:</strong> {selectedOrder.fulfillment}</p>
+                      <p><strong>Total:</strong> AED {selectedOrder.total.toFixed(2)}</p>
+                      <div className="pt-2">
+                        <strong>Items:</strong>
+                        <ul className="list-disc pl-4">
+                          {selectedOrder.items.map((item) => (
+                            <li key={`${selectedOrder.id}-${item.name}`}>{item.name} × {item.quantity} (AED {item.price})</li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  ) : <p className="text-sm text-muted-foreground">Click any request to see full data (number, address, items).</p>}
+                </div>
+              </div>
+            </section>
+          )}
 
           {section === "/integrations" && <section className="bg-card rounded-2xl p-6 shadow-card space-y-4"><h2 className="text-2xl font-bold">Admin API Settings</h2><Input placeholder="Email API key" value={settings.integrations.emailApiKey} onChange={(event) => onSettingsChange({ ...settings, integrations: { ...settings.integrations, emailApiKey: event.target.value } })} /><Input placeholder="Payment gateway key" value={settings.integrations.paymentGatewayKey} onChange={(event) => onSettingsChange({ ...settings, integrations: { ...settings.integrations, paymentGatewayKey: event.target.value } })} /><Input placeholder="SMS API key" value={settings.integrations.smsApiKey} onChange={(event) => onSettingsChange({ ...settings, integrations: { ...settings.integrations, smsApiKey: event.target.value } })} /><Input placeholder="Webhook URL" value={settings.integrations.webhookUrl} onChange={(event) => onSettingsChange({ ...settings, integrations: { ...settings.integrations, webhookUrl: event.target.value } })} /><Button onClick={() => addNotification("Integration settings updated", "system")}>{t.save}</Button></section>}
 

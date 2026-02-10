@@ -90,6 +90,61 @@ const App = () => {
     return () => window.clearTimeout(timeout);
   }, [notifications]);
 
+  useEffect(() => {
+    if (typeof window === "undefined" || !products.length || !orders.length) {
+      return;
+    }
+
+    const today = new Date().toISOString().slice(0, 10);
+    const dailyKey = "storefront-auto-offer-date";
+    if (localStorage.getItem(dailyKey) === today) {
+      return;
+    }
+
+    const threeDaysAgo = Date.now() - 3 * 24 * 60 * 60 * 1000;
+    const recentOrders = orders.filter((order) => order.id >= threeDaysAgo);
+    if (!recentOrders.length) {
+      return;
+    }
+
+    const counts = new Map<number, number>();
+    recentOrders.forEach((order) => {
+      order.items.forEach((item) => {
+        const product = products.find((p) => p.name === item.name);
+        if (!product) return;
+        counts.set(product.id, (counts.get(product.id) ?? 0) + item.quantity);
+      });
+    });
+
+    const leastPurchased = Array.from(counts.entries()).sort((a, b) => a[1] - b[1])[0];
+    if (!leastPurchased) {
+      return;
+    }
+
+    const targetProduct = products.find((product) => product.id === leastPurchased[0]);
+    if (!targetProduct) {
+      return;
+    }
+
+    setOffers((prev) => {
+      const existing = prev.find((offer) => offer.id === -1);
+      const autoOffer = {
+        id: -1,
+        productId: targetProduct.id,
+        title: `Auto Deal: ${targetProduct.name}`,
+        description: "Least purchased in last 3 days",
+        discountPercent: 12,
+        active: true,
+        createdAt: new Date().toLocaleString(),
+      };
+      if (existing) {
+        return prev.map((offer) => (offer.id === -1 ? autoOffer : offer));
+      }
+      return [autoOffer, ...prev];
+    });
+    localStorage.setItem(dailyKey, today);
+  }, [orders, products]);
+
   const handleCreateOrder = (order: Order) => {
     setOrders((prev) => mergeOrders([order, ...prev]));
     setNotifications((prev) => mergeNotifications([{ id: Date.now(), message: `New ${order.fulfillment} order from ${order.customer}`, type: "order", createdAt: new Date().toLocaleString(), read: false }, ...prev]));

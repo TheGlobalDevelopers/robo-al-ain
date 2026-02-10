@@ -2,6 +2,7 @@ import { ShoppingCart, Search, Menu, X, MapPin, Truck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Language, translations } from "@/lib/i18n";
 import { scrollToId } from "@/lib/scroll";
 import { roboLogoDataUrl } from "@/lib/brand";
@@ -29,6 +30,7 @@ const Header = ({
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const t = translations[language];
   const savedLocation = loadLocationCookie();
+  const navigate = useNavigate();
 
   const categories = useMemo(
     () => [
@@ -68,7 +70,11 @@ const Header = ({
 
       <div className="container mx-auto px-4 py-3">
         <div className="grid grid-cols-[auto_1fr_auto] items-center gap-2 sm:gap-4">
-          <div className="flex items-center gap-3 min-w-0">
+          <button
+            type="button"
+            className="flex items-center gap-3 min-w-0 text-left"
+            onClick={() => navigate("/")}
+          >
             <div className="w-11 h-11 rounded-lg bg-gradient-to-br from-primary to-emerald flex items-center justify-center overflow-hidden shrink-0">
               <img src={roboLogoDataUrl} alt="Robo Al Ain logo" className="h-9 w-9 object-contain" />
             </div>
@@ -76,7 +82,7 @@ const Header = ({
               <div className="text-xl font-bold text-foreground truncate">Robo Al Ain</div>
               <div className="text-xs text-muted-foreground">Fresh Market</div>
             </div>
-          </div>
+          </button>
 
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />

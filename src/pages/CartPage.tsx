@@ -1,10 +1,10 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CartItem } from "@/types/product";
 import { loadCartItems, saveCartItems } from "@/lib/cartStore";
 import { Order } from "@/types/order";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { loadLocationCookie, saveLocationCookie } from "@/lib/cookies";
 
@@ -12,8 +12,15 @@ interface CartPageProps {
   onCreateOrder: (order: Order) => void;
 }
 
+const parseMapCoordinates = (location: string) => {
+  const match = location.match(/q=([-\d.]+),([-\d.]+)/);
+  if (!match) return null;
+  return { lat: match[1], lng: match[2] };
+};
+
 const CartPage = ({ onCreateOrder }: CartPageProps) => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [items, setItems] = useState<CartItem[]>(loadCartItems());
   const [customer, setCustomer] = useState("");
   const [phone, setPhone] = useState("");
@@ -25,11 +32,27 @@ const CartPage = ({ onCreateOrder }: CartPageProps) => {
   const subtotal = useMemo(() => items.reduce((sum, item) => sum + item.price * item.quantity, 0), [items]);
   const deliveryFee = fulfillment === "delivery" ? 15 : 0;
   const total = subtotal + deliveryFee;
+  const mapCoords = parseMapCoordinates(location);
+
+  useEffect(() => {
+    if (searchParams.get("step") === "checkout") {
+      document.getElementById("checkout-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [searchParams]);
 
   const updateQty = (id: number, next: number) => {
     const updated = next <= 0 ? items.filter((item) => item.id !== id) : items.map((item) => (item.id === id ? { ...item, quantity: next } : item));
     setItems(updated);
     saveCartItems(updated);
+  };
+
+  const maybeSaveLocationCookie = (value: string) => {
+    if (!value.trim()) return;
+    const agreed = window.confirm("Save this location in cookies for faster next checkout?");
+    if (agreed) {
+      saveLocationCookie(value);
+      toast.success("Location saved in cookies.");
+    }
   };
 
   const getCurrentLocation = () => {
@@ -43,8 +66,7 @@ const CartPage = ({ onCreateOrder }: CartPageProps) => {
         const lng = position.coords.longitude.toFixed(6);
         const mapsValue = `https://www.google.com/maps?q=${lat},${lng}`;
         setLocation(mapsValue);
-        saveLocationCookie(mapsValue);
-        toast.success("Location captured from Google Maps coordinates.");
+        maybeSaveLocationCookie(mapsValue);
       },
       () => toast.error("Unable to read location. Please allow permissions.")
     );
@@ -54,7 +76,10 @@ const CartPage = ({ onCreateOrder }: CartPageProps) => {
 
   const placeOrder = () => {
     if (!canCheckout) return;
-    if (location.trim()) saveLocationCookie(location);
+
+    if (location.trim()) {
+      saveLocationCookie(location);
+    }
 
     const order: Order = {
       id: Date.now(),
@@ -97,7 +122,7 @@ const CartPage = ({ onCreateOrder }: CartPageProps) => {
           ))}
         </section>
 
-        <section className="bg-card rounded-2xl p-5 space-y-4 shadow-card">
+        <section id="checkout-section" className="bg-card rounded-2xl p-5 space-y-4 shadow-card">
           <h2 className="text-xl font-semibold">Checkout</h2>
           <Input placeholder="Customer Name" value={customer} onChange={(event) => setCustomer(event.target.value)} />
           <Input placeholder="Phone" value={phone} onChange={(event) => setPhone(event.target.value)} />
@@ -107,11 +132,26 @@ const CartPage = ({ onCreateOrder }: CartPageProps) => {
           </div>
           {fulfillment === "delivery" ? (
             <>
-              <Input placeholder="Location (required before payment)" value={location} onChange={(event) => setLocation(event.target.value)} />
+              <Input
+                placeholder="Location (Google Maps URL or address)"
+                value={location}
+                onChange={(event) => setLocation(event.target.value)}
+                onBlur={() => maybeSaveLocationCookie(location)}
+              />
               <div className="flex gap-2 flex-wrap">
                 <Button type="button" variant="outline" onClick={getCurrentLocation}>Get my location from Google Maps</Button>
                 <Button type="button" variant="outline" onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location || "Al Ain")}`, "_blank")}>Choose location on map</Button>
               </div>
+              {mapCoords ? (
+                <div className="rounded-xl border border-border overflow-hidden">
+                  <iframe
+                    title="Selected location map"
+                    src={`https://maps.google.com/maps?q=${mapCoords.lat},${mapCoords.lng}&z=15&output=embed`}
+                    className="w-full h-52"
+                    loading="lazy"
+                  />
+                </div>
+              ) : null}
               <Input placeholder="Address details" value={address} onChange={(event) => setAddress(event.target.value)} />
             </>
           ) : null}
