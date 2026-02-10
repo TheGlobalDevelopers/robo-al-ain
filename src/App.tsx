@@ -14,11 +14,13 @@ import { hasRemoteOrdersApi, loadOrders, mergeOrders, pushOrder, saveOrders } fr
 import { hasRemoteProductsApi, loadProducts, saveProducts } from "@/lib/productStore";
 
 const queryClient = new QueryClient();
+const SYNC_INTERVAL_MS = 3000;
 
 const App = () => {
   const [products, setProducts] = useState<Product[]>(initialProducts);
   const [orders, setOrders] = useState<Order[]>([]);
   const hasHydratedProducts = useRef(false);
+  const hasHydratedOrders = useRef(false);
 
   useEffect(() => {
     let active = true;
@@ -33,27 +35,51 @@ const App = () => {
       const nextOrders = await loadOrders();
       if (active) {
         setOrders(nextOrders);
+        hasHydratedOrders.current = true;
       }
     };
-    void refreshProducts();
-    void refreshOrders();
+    const refreshAll = () => {
+      void refreshProducts();
+      void refreshOrders();
+    };
+
+    refreshAll();
+
     if (!hasRemoteOrdersApi() && !hasRemoteProductsApi()) {
       return () => {
         active = false;
       };
     }
-    const interval = window.setInterval(() => {
-      void refreshProducts();
-      void refreshOrders();
-    }, 15000);
+
+    const interval = window.setInterval(refreshAll, SYNC_INTERVAL_MS);
+
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === "visible") {
+        refreshAll();
+      }
+    };
+
+    window.addEventListener("focus", handleVisibilityOrFocus);
+    document.addEventListener("visibilitychange", handleVisibilityOrFocus);
+
     return () => {
       active = false;
       window.clearInterval(interval);
+      window.removeEventListener("focus", handleVisibilityOrFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityOrFocus);
     };
   }, []);
 
   useEffect(() => {
-    void saveOrders(orders);
+    if (!hasHydratedOrders.current) {
+      return;
+    }
+    const timeout = window.setTimeout(() => {
+      void saveOrders(orders);
+    }, 500);
+    return () => {
+      window.clearTimeout(timeout);
+    };
   }, [orders]);
 
   useEffect(() => {

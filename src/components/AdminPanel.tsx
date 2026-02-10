@@ -111,7 +111,7 @@ const AdminPanel = ({
     if (!newProduct.name || !newProduct.price || !newProduct.category || !newProduct.image || !newProduct.unit) {
       return;
     }
-    const nextId = Math.max(0, ...products.map((product) => product.id)) + 1;
+    const nextId = Date.now() + Math.floor(Math.random() * 1000);
     const priceValue = Number(newProduct.price);
     const originalPriceValue = newProduct.originalPrice ? Number(newProduct.originalPrice) : null;
     onProductsChange([
@@ -135,7 +135,7 @@ const AdminPanel = ({
     if (!orderItems.trim() || !orderTotal) {
       return;
     }
-    const nextId = Math.max(0, ...orders.map((order) => order.id)) + 1;
+    const nextId = Date.now() + Math.floor(Math.random() * 1000);
     onOrdersChange([
       {
         id: nextId,
