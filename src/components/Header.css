@@ -1,0 +1,251 @@
+.header {
+  background-color: var(--primary-color);
+  color: var(--text-light);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.header-top {
+  padding: 15px 0;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.header-container {
+  display: flex;
+  align-items: center;
+  gap: 30px;
+  justify-content: space-between;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+  color: var(--text-light);
+  font-size: 24px;
+  font-weight: bold;
+  white-space: nowrap;
+}
+
+.logo-img {
+  width: 45px;
+  height: 45px;
+  border-radius: 8px;
+}
+
+.search-bar {
+  flex: 1;
+  max-width: 600px;
+  display: flex;
+  gap: 10px;
+}
+
+.search-bar input {
+  flex: 1;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 25px;
+  font-size: 16px;
+}
+
+.search-bar button {
+  padding: 12px 30px;
+  background-color: var(--secondary-color);
+  color: white;
+  border: none;
+  border-radius: 25px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background-color 0.3s;
+}
+
+.search-bar button:hover {
+  background-color: var(--hover-color);
+}
+
+.header-actions {
+  display: flex;
+  gap: 25px;
+  align-items: center;
+}
+
+.header-icon, .cart-icon {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  text-decoration: none;
+  color: var(--text-light);
+  cursor: pointer;
+  transition: color 0.3s;
+}
+
+.header-icon:hover, .cart-icon:hover {
+  color: var(--secondary-color);
+}
+
+.header-icon span, .cart-icon span {
+  font-size: 12px;
+}
+
+.cart-icon {
+  position: relative;
+}
+
+.cart-count {
+  position: absolute;
+  top: -5px;
+  right: -10px;
+  background-color: var(--secondary-color);
+  color: white;
+  border-radius: 50%;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: bold;
+}
+
+.notification-icon {
+  position: relative;
+  cursor: pointer;
+  padding: 8px;
+}
+
+.notification-icon .badge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  background-color: #e74c3c;
+  color: white;
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: bold;
+}
+
+.notifications-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 10px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  min-width: 300px;
+  max-height: 400px;
+  overflow-y: auto;
+  z-index: 1000;
+}
+
+.notification-item {
+  padding: 15px;
+  border-bottom: 1px solid #eee;
+  color: var(--text-dark);
+}
+
+.notification-item:last-child {
+  border-bottom: none;
+}
+
+.notification-item p {
+  margin-bottom: 5px;
+  font-size: 14px;
+}
+
+.notification-item small {
+  color: #777;
+  font-size: 12px;
+}
+
+.mobile-menu-btn {
+  display: none;
+  background: none;
+  border: none;
+  color: var(--text-light);
+  cursor: pointer;
+}
+
+.nav {
+  background-color: rgba(255, 255, 255, 0.1);
+  padding: 12px 0;
+}
+
+.nav .container {
+  display: flex;
+  gap: 30px;
+  flex-wrap: wrap;
+}
+
+.nav a {
+  color: var(--text-light);
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.3s;
+  padding: 8px 0;
+}
+
+.nav a:hover {
+  color: var(--secondary-color);
+}
+
+@media (max-width: 1024px) {
+  .search-bar {
+    max-width: 400px;
+  }
+  
+  .header-actions {
+    gap: 15px;
+  }
+}
+
+@media (max-width: 768px) {
+  .header-container {
+    flex-wrap: wrap;
+  }
+  
+  .search-bar {
+    order: 3;
+    max-width: 100%;
+    width: 100%;
+  }
+  
+  .mobile-menu-btn {
+    display: block;
+  }
+  
+  .header-actions {
+    gap: 10px;
+  }
+  
+  .header-icon span, .cart-icon span {
+    display: none;
+  }
+  
+  .nav {
+    display: none;
+  }
+  
+  .nav.mobile-open {
+    display: block;
+  }
+  
+  .nav .container {
+    flex-direction: column;
+    gap: 0;
+  }
+  
+  .nav a {
+    padding: 15px;
+    border-bottom: 1px solid var(--border-color);
+  }
+}
