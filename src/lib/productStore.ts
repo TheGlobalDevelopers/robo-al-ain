@@ -78,7 +78,7 @@ export const loadProducts = async (fallback: Product[]): Promise<Product[]> => {
   if (!remoteProducts.length) {
     return localProducts;
   }
-  const merged = mergeProducts([...remoteProducts, ...localProducts]);
+  const merged = mergeProducts([...localProducts, ...remoteProducts]);
   writeStoredProducts(merged);
   return merged;
 };

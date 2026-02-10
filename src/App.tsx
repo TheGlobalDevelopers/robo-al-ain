@@ -19,6 +19,7 @@ const App = () => {
   const [products, setProducts] = useState<Product[]>(initialProducts);
   const [orders, setOrders] = useState<Order[]>([]);
   const hasHydratedProducts = useRef(false);
+  const hasHydratedOrders = useRef(false);
 
   useEffect(() => {
     let active = true;
@@ -33,6 +34,7 @@ const App = () => {
       const nextOrders = await loadOrders();
       if (active) {
         setOrders(nextOrders);
+        hasHydratedOrders.current = true;
       }
     };
     void refreshProducts();
@@ -53,7 +55,15 @@ const App = () => {
   }, []);
 
   useEffect(() => {
-    void saveOrders(orders);
+    if (!hasHydratedOrders.current) {
+      return;
+    }
+    const timeout = window.setTimeout(() => {
+      void saveOrders(orders);
+    }, 500);
+    return () => {
+      window.clearTimeout(timeout);
+    };
   }, [orders]);
 
   useEffect(() => {
