@@ -10,6 +10,7 @@ import { SiteSettings } from "@/types/settings";
 import { AdminNotification } from "@/types/notification";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { toast } from "sonner";
+import { Bell } from "lucide-react";
 
 interface AdminProps {
   products: Product[];
@@ -24,13 +25,38 @@ interface AdminProps {
 }
 
 const menu = [
-  { path: "/admin", label: "Dashboard" },
-  { path: "/admin/prices", label: "Prices" },
-  { path: "/admin/offers", label: "Offers" },
-  { path: "/admin/requests", label: "Requests" },
-  { path: "/admin/integrations", label: "API Settings" },
-  { path: "/admin/notifications", label: "Notifications" },
+  { path: "/admin", label: { en: "Dashboard", ar: "لوحة التحكم" } },
+  { path: "/admin/prices", label: { en: "Prices", ar: "الأسعار" } },
+  { path: "/admin/offers", label: { en: "Offers", ar: "العروض" } },
+  { path: "/admin/requests", label: { en: "Requests", ar: "الطلبات" } },
+  { path: "/admin/integrations", label: { en: "API Settings", ar: "إعدادات API" } },
+  { path: "/admin/notifications", label: { en: "Notifications", ar: "الإشعارات" } },
 ];
+
+const labels = {
+  en: {
+    login: "Admin Sign In",
+    user: "Username",
+    pass: "Password",
+    invalid: "Invalid login details.",
+    signIn: "Sign In",
+    addProduct: "Add New Product",
+    save: "Save",
+    signOut: "Sign out",
+    lang: "العربية",
+  },
+  ar: {
+    login: "دخول الإدارة",
+    user: "اسم المستخدم",
+    pass: "كلمة المرور",
+    invalid: "بيانات الدخول غير صحيحة.",
+    signIn: "دخول",
+    addProduct: "إضافة منتج جديد",
+    save: "حفظ",
+    signOut: "تسجيل خروج",
+    lang: "English",
+  },
+};
 
 const Admin = ({
   products,
@@ -43,15 +69,19 @@ const Admin = ({
   notifications,
   onNotificationsChange,
 }: AdminProps) => {
+  const [language, setLanguage] = useState<"en" | "ar">("en");
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [authError, setAuthError] = useState("");
+  const [showBell, setShowBell] = useState(false);
   const [newOffer, setNewOffer] = useState({ productId: "", title: "", description: "", discountPercent: "10" });
+  const [newProduct, setNewProduct] = useState({ name: "", price: "", category: "", image: "", unit: "", originalPrice: "" });
   const navigate = useNavigate();
   const location = useLocation();
 
   const section = location.pathname.replace("/admin", "") || "/";
+  const t = labels[language];
 
   const monthlyData = useMemo(() => {
     const map = new Map<string, number>();
@@ -78,10 +108,7 @@ const Admin = ({
   const unreadCount = notifications.filter((item) => !item.read).length;
 
   const addNotification = (message: string, type: AdminNotification["type"] = "system") => {
-    onNotificationsChange([
-      { id: Date.now(), message, type, createdAt: new Date().toLocaleString(), read: false },
-      ...notifications,
-    ]);
+    onNotificationsChange([{ id: Date.now(), message, type, createdAt: new Date().toLocaleString(), read: false }, ...notifications]);
   };
 
   const handleLogin = () => {
@@ -89,45 +116,62 @@ const Admin = ({
       setIsAuthenticated(true);
       setAuthError("");
     } else {
-      setAuthError("Invalid login details.");
+      setAuthError(t.invalid);
     }
   };
 
-  const downloadWeek = (week: string, total: number) => {
-    const csv = `week,total\n${week},${total}`;
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `weekly-report-${week}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const addProduct = () => {
+    if (!newProduct.name || !newProduct.price || !newProduct.category || !newProduct.image || !newProduct.unit) {
+      toast.error("Please complete all product fields.");
+      return;
+    }
+    const nextId = Math.max(0, ...products.map((item) => item.id)) + 1;
+    const price = Number(newProduct.price);
+    const originalPrice = newProduct.originalPrice ? Number(newProduct.originalPrice) : null;
+    onProductsChange([
+      ...products,
+      {
+        id: nextId,
+        name: newProduct.name,
+        nameAr: newProduct.name,
+        price: Number.isNaN(price) ? 0 : price,
+        originalPrice: Number.isNaN(originalPrice) ? null : originalPrice,
+        rating: 4.5,
+        image: newProduct.image,
+        category: newProduct.category,
+        unit: newProduct.unit,
+        inStock: true,
+      },
+    ]);
+    addNotification(`New product added: ${newProduct.name}`, "product");
+    toast.success("Product added live.");
+    setNewProduct({ name: "", price: "", category: "", image: "", unit: "", originalPrice: "" });
   };
 
-  const markAllRead = () => {
-    onNotificationsChange(notifications.map((item) => ({ ...item, read: true })));
-  };
+  const markAllRead = () => onNotificationsChange(notifications.map((item) => ({ ...item, read: true })));
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-background">
-        <div className="container mx-auto px-4 py-16 max-w-lg">
-          <div className="bg-card rounded-2xl shadow-card p-8 space-y-4">
-            <h1 className="text-2xl font-bold">Admin Sign In</h1>
-            <Input placeholder="Username" value={username} onChange={(event) => setUsername(event.target.value)} />
-            <Input placeholder="Password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} />
-            {authError ? <p className="text-sm text-destructive">{authError}</p> : null}
-            <Button className="w-full" onClick={handleLogin}>Sign In</Button>
+      <div className="min-h-screen bg-background flex items-center justify-center px-4" dir={language === "ar" ? "rtl" : "ltr"}>
+        <div className="w-full max-w-md bg-card rounded-3xl shadow-card p-8 space-y-5 text-center">
+          <Button variant="outline" size="sm" className="ml-auto" onClick={() => setLanguage((prev) => (prev === "en" ? "ar" : "en"))}>{t.lang}</Button>
+          <div className="mx-auto w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center">
+            <img src={roboLogoDataUrl} alt="Robo Al Ain logo" className="w-16 h-16 object-contain" />
           </div>
+          <h1 className="text-2xl font-bold">{t.login}</h1>
+          <Input placeholder={t.user} value={username} onChange={(event) => setUsername(event.target.value)} />
+          <Input placeholder={t.pass} type="password" value={password} onChange={(event) => setPassword(event.target.value)} />
+          {authError ? <p className="text-sm text-destructive">{authError}</p> : null}
+          <Button className="w-full" onClick={handleLogin}>{t.signIn}</Button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b border-border bg-card">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between gap-3 flex-wrap">
+    <div className="min-h-screen bg-background" dir={language === "ar" ? "rtl" : "ltr"}>
+      <header className="border-b border-border bg-card sticky top-0 z-20">
+        <div className="container mx-auto px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-3">
             <div className="w-11 h-11 rounded-lg bg-primary flex items-center justify-center overflow-hidden"><img src={roboLogoDataUrl} alt="Robo Al Ain logo" className="h-9 w-9 object-contain" /></div>
             <div>
@@ -135,9 +179,25 @@ const Admin = ({
               <div className="text-sm text-muted-foreground">Live control panel</div>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 relative">
+            <Button variant="outline" size="sm" onClick={() => setLanguage((prev) => (prev === "en" ? "ar" : "en"))}>{t.lang}</Button>
+            <Button variant="outline" size="icon" onClick={() => setShowBell((prev) => !prev)} className="relative">
+              <Bell className="h-4 w-4" />
+              {unreadCount > 0 ? <span className="absolute -top-1 -right-1 text-[10px] bg-destructive text-white rounded-full px-1">{unreadCount}</span> : null}
+            </Button>
+            {showBell && (
+              <div className="absolute right-0 top-12 w-80 max-h-96 overflow-auto rounded-xl border border-border bg-card shadow-lg p-3 z-30">
+                {notifications.length === 0 ? <p className="text-sm text-muted-foreground">No notifications.</p> : notifications.slice(0, 8).map((item) => (
+                  <div key={item.id} className="py-2 border-b border-border/50 last:border-b-0">
+                    <p className="text-sm font-medium">{item.message}</p>
+                    <p className="text-xs text-muted-foreground">{item.createdAt}</p>
+                  </div>
+                ))}
+                <Button variant="outline" size="sm" className="w-full mt-2" onClick={markAllRead}>Mark all as read</Button>
+              </div>
+            )}
             <Button variant="outline" onClick={() => navigate("/")}>Back to site</Button>
-            <Button variant="outline" onClick={() => setIsAuthenticated(false)}>Sign out</Button>
+            <Button variant="outline" onClick={() => setIsAuthenticated(false)}>{t.signOut}</Button>
           </div>
         </div>
       </header>
@@ -147,8 +207,7 @@ const Admin = ({
           <nav className="space-y-1">
             {menu.map((item) => (
               <Link key={item.path} to={item.path} className={`block rounded-lg px-3 py-2 text-sm ${location.pathname === item.path ? "bg-primary text-primary-foreground" : "hover:bg-secondary"}`}>
-                {item.label}
-                {item.path.includes("notifications") && unreadCount ? ` (${unreadCount})` : ""}
+                {item.label[language]}
               </Link>
             ))}
           </nav>
@@ -164,38 +223,32 @@ const Admin = ({
                 <div className="rounded-xl bg-secondary p-4"><p className="text-sm text-muted-foreground">Products</p><p className="text-2xl font-bold">{products.length}</p></div>
               </div>
               <div className="grid xl:grid-cols-2 gap-6">
-                <div className="h-72">
-                  <p className="font-semibold mb-2">Monthly Report</p>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={monthlyData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="month" /><YAxis /><Tooltip /><Bar dataKey="total" fill="hsl(var(--primary))" /></BarChart>
-                  </ResponsiveContainer>
-                </div>
-                <div className="h-72">
-                  <p className="font-semibold mb-2">Weekly Report</p>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={weeklyData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="week" /><YAxis /><Tooltip /><Bar dataKey="total" fill="hsl(var(--accent))" /></BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-              <div className="space-y-2">
-                {weeklyData.map((row) => (
-                  <div key={row.week} className="flex items-center justify-between border border-border rounded-lg p-2">
-                    <span>{row.week} - AED {row.total.toFixed(2)}</span>
-                    <Button size="sm" variant="outline" onClick={() => downloadWeek(row.week, row.total)}>Download week</Button>
-                  </div>
-                ))}
+                <div className="h-72"><p className="font-semibold mb-2">Monthly Report</p><ResponsiveContainer width="100%" height="100%"><BarChart data={monthlyData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="month" /><YAxis /><Tooltip /><Bar dataKey="total" fill="hsl(var(--primary))" /></BarChart></ResponsiveContainer></div>
+                <div className="h-72"><p className="font-semibold mb-2">Weekly Report</p><ResponsiveContainer width="100%" height="100%"><BarChart data={weeklyData}><CartesianGrid strokeDasharray="3 3" /><XAxis dataKey="week" /><YAxis /><Tooltip /><Bar dataKey="total" fill="hsl(var(--accent))" /></BarChart></ResponsiveContainer></div>
               </div>
             </section>
           )}
 
           {section === "/prices" && (
-            <section className="bg-card rounded-2xl p-6 shadow-card space-y-3">
-              <h2 className="text-2xl font-bold">Price Management</h2>
+            <section className="bg-card rounded-2xl p-6 shadow-card space-y-4">
+              <h2 className="text-2xl font-bold">{t.addProduct}</h2>
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-2">
+                <Input placeholder="Name" value={newProduct.name} onChange={(event) => setNewProduct((prev) => ({ ...prev, name: event.target.value }))} />
+                <Input placeholder="Price" type="number" value={newProduct.price} onChange={(event) => setNewProduct((prev) => ({ ...prev, price: event.target.value }))} />
+                <Input placeholder="Category (Fresh, Dairy...)" value={newProduct.category} onChange={(event) => setNewProduct((prev) => ({ ...prev, category: event.target.value }))} />
+                <Input placeholder="Image URL" value={newProduct.image} onChange={(event) => setNewProduct((prev) => ({ ...prev, image: event.target.value }))} />
+                <Input placeholder="Unit (1kg, each...)" value={newProduct.unit} onChange={(event) => setNewProduct((prev) => ({ ...prev, unit: event.target.value }))} />
+                <Input placeholder="Original Price (optional)" type="number" value={newProduct.originalPrice} onChange={(event) => setNewProduct((prev) => ({ ...prev, originalPrice: event.target.value }))} />
+              </div>
+              <Button onClick={addProduct}>{t.save}</Button>
+
+              <h3 className="text-xl font-semibold pt-2">Live Price Management</h3>
               {products.map((product) => (
-                <div key={product.id} className="grid grid-cols-1 md:grid-cols-[1fr_160px_140px] gap-2 items-center border border-border rounded-lg p-2">
+                <div key={product.id} className="grid grid-cols-1 md:grid-cols-[1fr_160px_160px_120px] gap-2 items-center border border-border rounded-lg p-2">
                   <div>{product.name}</div>
+                  <Input value={product.category} onChange={(event) => onProductsChange(products.map((item) => item.id === product.id ? { ...item, category: event.target.value } : item))} />
                   <Input type="number" value={product.price} onChange={(event) => onProductsChange(products.map((item) => item.id === product.id ? { ...item, price: Number(event.target.value) } : item))} />
-                  <Button variant="outline" onClick={() => { addNotification(`Price updated for ${product.name}`, "product"); toast.success("Price updated"); }}>Save</Button>
+                  <Button variant="outline" onClick={() => { addNotification(`Price updated for ${product.name}`, "product"); toast.success("Updated live"); }}>Save</Button>
                 </div>
               ))}
             </section>
@@ -220,55 +273,18 @@ const Admin = ({
               }}>Add offer</Button>
               {offers.map((offer) => (
                 <div key={offer.id} className="border border-border rounded-lg p-3 flex justify-between items-center gap-2">
-                  <div>
-                    <p className="font-medium">{offer.title} ({offer.discountPercent}%)</p>
-                    <p className="text-sm text-muted-foreground">Product #{offer.productId} - {offer.description}</p>
-                  </div>
-                  <Button variant={offer.active ? "outline" : "default"} onClick={() => {
-                    onOffersChange(offers.map((item) => item.id === offer.id ? { ...item, active: !item.active } : item));
-                    addNotification(`Offer ${offer.active ? "disabled" : "enabled"}: ${offer.title}`, "offer");
-                  }}>{offer.active ? "Disable" : "Enable"}</Button>
+                  <div><p className="font-medium">{offer.title} ({offer.discountPercent}%)</p><p className="text-sm text-muted-foreground">Product #{offer.productId} - {offer.description}</p></div>
+                  <Button variant={offer.active ? "outline" : "default"} onClick={() => { onOffersChange(offers.map((item) => item.id === offer.id ? { ...item, active: !item.active } : item)); addNotification(`Offer ${offer.active ? "disabled" : "enabled"}: ${offer.title}`, "offer"); }}>{offer.active ? "Disable" : "Enable"}</Button>
                 </div>
               ))}
             </section>
           )}
 
-          {section === "/requests" && (
-            <section className="bg-card rounded-2xl p-6 shadow-card space-y-4">
-              <h2 className="text-2xl font-bold">Requests</h2>
-              {orders.map((order) => (
-                <div key={order.id} className="border border-border rounded-xl p-3">
-                  <div className="flex justify-between gap-2"><p className="font-medium">{order.customer}</p><p className="text-sm text-muted-foreground">{order.date}</p></div>
-                  <p className="text-sm text-muted-foreground">{order.fulfillment} - {order.address}</p>
-                  <p className="font-semibold mt-2">AED {order.total.toFixed(2)}</p>
-                </div>
-              ))}
-            </section>
-          )}
+          {section === "/requests" && <section className="bg-card rounded-2xl p-6 shadow-card space-y-4"><h2 className="text-2xl font-bold">Requests</h2>{orders.map((order) => <div key={order.id} className="border border-border rounded-xl p-3"><div className="flex justify-between gap-2"><p className="font-medium">{order.customer}</p><p className="text-sm text-muted-foreground">{order.date}</p></div><p className="text-sm text-muted-foreground">{order.fulfillment} - {order.address}</p><p className="font-semibold mt-2">AED {order.total.toFixed(2)}</p></div>)}</section>}
 
-          {section === "/integrations" && (
-            <section className="bg-card rounded-2xl p-6 shadow-card space-y-4">
-              <h2 className="text-2xl font-bold">Admin API Settings</h2>
-              <p className="text-sm text-muted-foreground">You can save up to large values here (suitable for long keys and configs).</p>
-              <Input placeholder="Email API key" value={settings.integrations.emailApiKey} onChange={(event) => onSettingsChange({ ...settings, integrations: { ...settings.integrations, emailApiKey: event.target.value } })} />
-              <Input placeholder="Payment gateway key" value={settings.integrations.paymentGatewayKey} onChange={(event) => onSettingsChange({ ...settings, integrations: { ...settings.integrations, paymentGatewayKey: event.target.value } })} />
-              <Input placeholder="SMS API key" value={settings.integrations.smsApiKey} onChange={(event) => onSettingsChange({ ...settings, integrations: { ...settings.integrations, smsApiKey: event.target.value } })} />
-              <Input placeholder="Webhook URL" value={settings.integrations.webhookUrl} onChange={(event) => onSettingsChange({ ...settings, integrations: { ...settings.integrations, webhookUrl: event.target.value } })} />
-              <Button onClick={() => addNotification("Integration settings updated", "system")}>Save API settings</Button>
-            </section>
-          )}
+          {section === "/integrations" && <section className="bg-card rounded-2xl p-6 shadow-card space-y-4"><h2 className="text-2xl font-bold">Admin API Settings</h2><Input placeholder="Email API key" value={settings.integrations.emailApiKey} onChange={(event) => onSettingsChange({ ...settings, integrations: { ...settings.integrations, emailApiKey: event.target.value } })} /><Input placeholder="Payment gateway key" value={settings.integrations.paymentGatewayKey} onChange={(event) => onSettingsChange({ ...settings, integrations: { ...settings.integrations, paymentGatewayKey: event.target.value } })} /><Input placeholder="SMS API key" value={settings.integrations.smsApiKey} onChange={(event) => onSettingsChange({ ...settings, integrations: { ...settings.integrations, smsApiKey: event.target.value } })} /><Input placeholder="Webhook URL" value={settings.integrations.webhookUrl} onChange={(event) => onSettingsChange({ ...settings, integrations: { ...settings.integrations, webhookUrl: event.target.value } })} /><Button onClick={() => addNotification("Integration settings updated", "system")}>{t.save}</Button></section>}
 
-          {section === "/notifications" && (
-            <section className="bg-card rounded-2xl p-6 shadow-card space-y-4">
-              <div className="flex items-center justify-between"><h2 className="text-2xl font-bold">Admin Notifications</h2><Button variant="outline" onClick={markAllRead}>Mark all as read</Button></div>
-              {notifications.map((item) => (
-                <div key={item.id} className={`border rounded-lg p-3 ${item.read ? "border-border" : "border-primary"}`}>
-                  <p className="font-medium">{item.message}</p>
-                  <p className="text-sm text-muted-foreground">{item.createdAt}</p>
-                </div>
-              ))}
-            </section>
-          )}
+          {section === "/notifications" && <section className="bg-card rounded-2xl p-6 shadow-card space-y-4"><div className="flex items-center justify-between"><h2 className="text-2xl font-bold">Admin Notifications</h2><Button variant="outline" onClick={markAllRead}>Mark all as read</Button></div>{notifications.map((item) => <div key={item.id} className={`border rounded-lg p-3 ${item.read ? "border-border" : "border-primary"}`}><p className="font-medium">{item.message}</p><p className="text-sm text-muted-foreground">{item.createdAt}</p></div>)}</section>}
         </main>
       </div>
     </div>

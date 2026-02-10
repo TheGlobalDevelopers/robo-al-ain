@@ -6,6 +6,7 @@ import { loadCartItems, saveCartItems } from "@/lib/cartStore";
 import { Order } from "@/types/order";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { loadLocationCookie, saveLocationCookie } from "@/lib/cookies";
 
 interface CartPageProps {
   onCreateOrder: (order: Order) => void;
@@ -17,7 +18,7 @@ const CartPage = ({ onCreateOrder }: CartPageProps) => {
   const [customer, setCustomer] = useState("");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
-  const [location, setLocation] = useState("");
+  const [location, setLocation] = useState(loadLocationCookie());
   const [paymentMethod, setPaymentMethod] = useState<"online" | "cod">("online");
   const [fulfillment, setFulfillment] = useState<"delivery" | "pickup">("delivery");
 
@@ -31,10 +32,30 @@ const CartPage = ({ onCreateOrder }: CartPageProps) => {
     saveCartItems(updated);
   };
 
+  const getCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      toast.error("Geolocation is not supported.");
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const lat = position.coords.latitude.toFixed(6);
+        const lng = position.coords.longitude.toFixed(6);
+        const mapsValue = `https://www.google.com/maps?q=${lat},${lng}`;
+        setLocation(mapsValue);
+        saveLocationCookie(mapsValue);
+        toast.success("Location captured from Google Maps coordinates.");
+      },
+      () => toast.error("Unable to read location. Please allow permissions.")
+    );
+  };
+
   const canCheckout = items.length > 0 && customer.trim() && phone.trim() && (fulfillment === "pickup" || location.trim());
 
   const placeOrder = () => {
     if (!canCheckout) return;
+    if (location.trim()) saveLocationCookie(location);
+
     const order: Order = {
       id: Date.now(),
       customer: customer.trim(),
@@ -87,6 +108,10 @@ const CartPage = ({ onCreateOrder }: CartPageProps) => {
           {fulfillment === "delivery" ? (
             <>
               <Input placeholder="Location (required before payment)" value={location} onChange={(event) => setLocation(event.target.value)} />
+              <div className="flex gap-2 flex-wrap">
+                <Button type="button" variant="outline" onClick={getCurrentLocation}>Get my location from Google Maps</Button>
+                <Button type="button" variant="outline" onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location || "Al Ain")}`, "_blank")}>Choose location on map</Button>
+              </div>
               <Input placeholder="Address details" value={address} onChange={(event) => setAddress(event.target.value)} />
             </>
           ) : null}
