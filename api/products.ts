@@ -1,6 +1,10 @@
+import { promises as fs } from "node:fs";
+import path from "node:path";
+
 const KV_REST_API_URL = process.env.KV_REST_API_URL;
 const KV_REST_API_TOKEN = process.env.KV_REST_API_TOKEN;
 const KV_KEY = "storefront-products";
+const FILE_STORE_PATH = path.join(process.cwd(), ".data", `${KV_KEY}.json`);
 
 const json = (res: any, status: number, body: unknown) => {
   res.status(status).setHeader("Content-Type", "application/json").send(JSON.stringify(body));
@@ -11,9 +15,28 @@ const getKvHeaders = () => ({
   "Content-Type": "application/json",
 });
 
+const ensureFileStoreDir = async () => {
+  await fs.mkdir(path.dirname(FILE_STORE_PATH), { recursive: true });
+};
+
+const getProductsFromFile = async (): Promise<unknown[]> => {
+  try {
+    const raw = await fs.readFile(FILE_STORE_PATH, "utf-8");
+    const parsed = JSON.parse(raw) as unknown;
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+const setProductsToFile = async (products: unknown[]) => {
+  await ensureFileStoreDir();
+  await fs.writeFile(FILE_STORE_PATH, JSON.stringify(products), "utf-8");
+};
+
 const getProducts = async (): Promise<unknown[]> => {
   if (!KV_REST_API_URL || !KV_REST_API_TOKEN) {
-    return [];
+    return getProductsFromFile();
   }
   const response = await fetch(`${KV_REST_API_URL}/get/${KV_KEY}`, {
     headers: getKvHeaders(),
@@ -33,6 +56,7 @@ const getProducts = async (): Promise<unknown[]> => {
 
 const setProducts = async (products: unknown[]) => {
   if (!KV_REST_API_URL || !KV_REST_API_TOKEN) {
+    await setProductsToFile(products);
     return;
   }
   await fetch(`${KV_REST_API_URL}/set/${KV_KEY}`, {
@@ -58,17 +82,13 @@ const mergeProducts = (products: unknown[]): unknown[] => {
 };
 
 export default async function handler(req: any, res: any) {
-  if (!KV_REST_API_URL || !KV_REST_API_TOKEN) {
-    return json(res, 501, {
-      error: "Vercel KV is not configured.",
-      hint: "Set KV_REST_API_URL and KV_REST_API_TOKEN in your Vercel project settings.",
-    });
-  }
-
   try {
     if (req.method === "GET") {
       const products = await getProducts();
-      return json(res, 200, { products });
+      return json(res, 200, {
+        products,
+        storage: KV_REST_API_URL && KV_REST_API_TOKEN ? "kv" : "file",
+      });
     }
 
     if (req.method === "POST") {
