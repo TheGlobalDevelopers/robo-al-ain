@@ -5,6 +5,7 @@ import { Language, translations } from "@/lib/i18n";
 import { getProductName, getProductUnit } from "@/lib/productLabels";
 import { Input } from "@/components/ui/input";
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -31,6 +32,7 @@ const CartDrawer = ({
   language,
   onCheckout,
 }: CartDrawerProps) => {
+  const navigate = useNavigate();
   const [showCheckoutForm, setShowCheckoutForm] = useState(false);
   const [customerName, setCustomerName] = useState("");
   const [phone, setPhone] = useState("05");
@@ -160,12 +162,24 @@ const CartDrawer = ({
               <span className="text-primary">{total.toFixed(2)} AED</span>
             </div>
             {!showCheckoutForm && (
-              <Button
-                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground h-12 rounded-lg text-base font-semibold"
-                onClick={() => setShowCheckoutForm(true)}
-              >
-                {t.cart.checkout}
-              </Button>
+              <div className="space-y-2">
+                <Button
+                  className="w-full bg-primary hover:bg-primary/90 text-primary-foreground h-12 rounded-lg text-base font-semibold"
+                  onClick={() => setShowCheckoutForm(true)}
+                >
+                  {t.cart.checkout}
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full rounded-lg"
+                  onClick={() => {
+                    onClose();
+                    navigate("/cart");
+                  }}
+                >
+                  Open Full Cart Page
+                </Button>
+              </div>
             )}
             {showCheckoutForm && (
               <div className="mt-4 rounded-xl border border-border/60 bg-secondary/20 p-4 space-y-3 max-h-72 overflow-y-auto pr-1">
