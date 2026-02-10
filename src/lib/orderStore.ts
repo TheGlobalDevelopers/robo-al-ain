@@ -89,10 +89,13 @@ export const saveOrders = async (orders: Order[]) => {
     return;
   }
   try {
+    const remoteOrders = await fetchRemoteOrders();
+    const mergedOrders = remoteOrders.length ? mergeOrders([...remoteOrders, ...orders]) : orders;
+    writeStoredOrders(mergedOrders);
     await fetch(ORDER_API_URL, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ orders }),
+      body: JSON.stringify({ orders: mergedOrders }),
     });
   } catch {
     // Ignore network errors; local storage already updated.

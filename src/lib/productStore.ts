@@ -89,10 +89,13 @@ export const saveProducts = async (products: Product[]) => {
     return;
   }
   try {
+    const remoteProducts = await fetchRemoteProducts();
+    const mergedProducts = remoteProducts.length ? mergeProducts([...remoteProducts, ...products]) : products;
+    writeStoredProducts(mergedProducts);
     await fetch(PRODUCTS_API_URL, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ products }),
+      body: JSON.stringify({ products: mergedProducts }),
     });
   } catch {
     // Ignore network errors; local storage already updated.

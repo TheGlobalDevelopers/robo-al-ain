@@ -1,19 +1,48 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 
+type ApiRequest = {
+  method?: string;
+  body?: unknown;
+};
+
+type ApiResponse = {
+  status: (code: number) => ApiResponse;
+  setHeader: (name: string, value: string) => ApiResponse;
+  send: (body: string) => void;
+};
+
 const KV_REST_API_URL = process.env.KV_REST_API_URL;
 const KV_REST_API_TOKEN = process.env.KV_REST_API_TOKEN;
 const KV_KEY = "storefront-products";
 const FILE_STORE_PATH = path.join(process.cwd(), ".data", `${KV_KEY}.json`);
 
-const json = (res: any, status: number, body: unknown) => {
-  res.status(status).setHeader("Content-Type", "application/json").send(JSON.stringify(body));
+const json = (res: ApiResponse, status: number, body: unknown) => {
+  res
+    .status(status)
+    .setHeader("Content-Type", "application/json")
+    .setHeader("Cache-Control", "no-store")
+    .send(JSON.stringify(body));
 };
 
 const getKvHeaders = () => ({
   Authorization: `Bearer ${KV_REST_API_TOKEN}`,
   "Content-Type": "application/json",
 });
+
+const parseBody = <T>(raw: unknown): T | null => {
+  if (raw && typeof raw === "object") {
+    return raw as T;
+  }
+  if (typeof raw !== "string") {
+    return null;
+  }
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return null;
+  }
+};
 
 const ensureFileStoreDir = async () => {
   await fs.mkdir(path.dirname(FILE_STORE_PATH), { recursive: true });
@@ -81,7 +110,7 @@ const mergeProducts = (products: unknown[]): unknown[] => {
   });
 };
 
-export default async function handler(req: any, res: any) {
+export default async function handler(req: ApiRequest, res: ApiResponse) {
   try {
     if (req.method === "GET") {
       const products = await getProducts();
@@ -92,7 +121,10 @@ export default async function handler(req: any, res: any) {
     }
 
     if (req.method === "POST") {
-      const incoming = req.body;
+      const incoming = parseBody<unknown>(req.body);
+      if (!incoming || typeof incoming !== "object") {
+        return json(res, 400, { error: "Invalid product payload" });
+      }
       const current = await getProducts();
       const merged = mergeProducts([incoming, ...current]);
       await setProducts(merged);
@@ -100,8 +132,11 @@ export default async function handler(req: any, res: any) {
     }
 
     if (req.method === "PUT") {
-      const incoming = req.body as { products?: unknown[] };
-      const nextProducts = Array.isArray(incoming?.products) ? incoming.products : [];
+      const incoming = parseBody<{ products?: unknown[] }>(req.body);
+      const nextProducts = Array.isArray(incoming?.products) ? incoming.products : null;
+      if (!nextProducts) {
+        return json(res, 400, { error: "Invalid products payload" });
+      }
       const merged = mergeProducts(nextProducts);
       await setProducts(merged);
       return json(res, 200, { products: merged });
