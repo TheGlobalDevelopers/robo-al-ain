@@ -52,7 +52,7 @@ export const loadOffers = async () => {
   if (!API_URL) return local;
   const remote = await fetchRemote();
   if (!remote.length) return local;
-  const merged = mergeOffers([...remote, ...local]);
+  const merged = mergeOffers([...local, ...remote]);
   writeLocal(merged);
   return merged;
 };

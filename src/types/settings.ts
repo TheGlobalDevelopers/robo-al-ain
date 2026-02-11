@@ -6,8 +6,15 @@ export interface IntegrationSettings {
   webhookUrl: string;
 }
 
+export interface DealsSettings {
+  headline: string;
+  subtitle: string;
+  endAtIso?: string;
+}
+
 export interface SiteSettings {
   integrations: IntegrationSettings;
+  deals: DealsSettings;
 }
 
 export const defaultSettings: SiteSettings = {
@@ -17,5 +24,10 @@ export const defaultSettings: SiteSettings = {
     smsApiKey: "",
     whatsappApiKey: "",
     webhookUrl: "",
+  },
+  deals: {
+    headline: "Hot Daily Deals",
+    subtitle: "Fresh offers updated regularly.",
+    endAtIso: "",
   },
 };

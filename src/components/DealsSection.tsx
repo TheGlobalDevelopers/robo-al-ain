@@ -5,12 +5,14 @@ import { Product } from "@/types/product";
 import { Language, translations } from "@/lib/i18n";
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious, type CarouselApi } from "@/components/ui/carousel";
 import { Offer } from "@/types/offer";
+import { SiteSettings } from "@/types/settings";
 
 interface DealsSectionProps {
   products: Product[];
   offers: Offer[];
   onAddToCart: (product: Product) => void;
   language: Language;
+  settings?: SiteSettings;
 }
 
 const getNextReset = () => {
@@ -28,10 +30,10 @@ const formatCountdown = (ms: number) => {
   return `${h}:${m}:${s}`;
 };
 
-const DealsSection = ({ products, offers, onAddToCart, language }: DealsSectionProps) => {
+const DealsSection = ({ products, offers, onAddToCart, language, settings }: DealsSectionProps) => {
   const t = translations[language];
   const [carouselApi, setCarouselApi] = useState<CarouselApi | null>(null);
-  const [resetAt, setResetAt] = useState(getNextReset());
+  const [resetAt, setResetAt] = useState(settings?.deals?.endAtIso ? new Date(settings.deals.endAtIso).getTime() : getNextReset());
   const [timeLeft, setTimeLeft] = useState(formatCountdown(resetAt - Date.now()));
 
   const dealProducts = useMemo(() => {
@@ -63,11 +65,20 @@ const DealsSection = ({ products, offers, onAddToCart, language }: DealsSectionP
     return () => clearInterval(interval);
   }, [carouselApi]);
 
+
+  useEffect(() => {
+    if (settings?.deals?.endAtIso) {
+      const ts = new Date(settings.deals.endAtIso).getTime();
+      if (!Number.isNaN(ts) && ts > Date.now()) {
+        setResetAt(ts);
+      }
+    }
+  }, [settings?.deals?.endAtIso]);
   useEffect(() => {
     const timer = window.setInterval(() => {
       const remaining = resetAt - Date.now();
       if (remaining <= 0) {
-        const next = getNextReset();
+        const next = settings?.deals?.endAtIso ? getNextReset() : getNextReset();
         setResetAt(next);
         setTimeLeft(formatCountdown(next - Date.now()));
         return;
@@ -88,8 +99,8 @@ const DealsSection = ({ products, offers, onAddToCart, language }: DealsSectionP
               <Flame className="w-6 h-6 text-accent-foreground" />
             </div>
             <div>
-              <h2 className="text-2xl md:text-3xl font-bold text-foreground">{t.deals.title}</h2>
-              <p className="text-muted-foreground">{t.deals.subtitle}</p>
+              <h2 className="text-2xl md:text-3xl font-bold text-foreground">{settings?.deals?.headline || t.deals.title}</h2>
+              <p className="text-muted-foreground">{settings?.deals?.subtitle || t.deals.subtitle}</p>
             </div>
           </div>
           <div className="flex items-center gap-2 bg-card px-4 py-2 rounded-full shadow-card">

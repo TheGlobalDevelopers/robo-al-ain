@@ -14,14 +14,16 @@ import { Order } from "@/types/order";
 import { scrollToId } from "@/lib/scroll";
 import { loadCartItems, saveCartItems } from "@/lib/cartStore";
 import { Offer } from "@/types/offer";
+import { SiteSettings } from "@/types/settings";
 
 interface IndexProps {
   products: Product[];
   offers: Offer[];
   onCreateOrder: (order: Order) => void;
+  settings: SiteSettings;
 }
 
-const Index = ({ products, offers, onCreateOrder }: IndexProps) => {
+const Index = ({ products, offers, onCreateOrder, settings }: IndexProps) => {
   const [cartItems, setCartItems] = useState<CartItem[]>(loadCartItems());
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [language, setLanguage] = useState<Language>("en");
@@ -100,9 +102,9 @@ const Index = ({ products, offers, onCreateOrder }: IndexProps) => {
       />
       <Hero language={language} />
       <Categories language={language} onCategorySelect={(category) => setActiveCategory(category)} />
-      <DealsSection products={products} offers={offers} onAddToCart={handleAddToCart} language={language} />
+      <DealsSection products={products} offers={offers} onAddToCart={handleAddToCart} language={language} settings={settings} />
       <ProductGrid
-        products={products}
+        products={products.filter((product) => product.rating >= 4.6)}
         onAddToCart={handleAddToCart}
         language={language}
         activeTab={activeCategory}

@@ -5,11 +5,22 @@ const API_URL = import.meta.env.VITE_SETTINGS_API_URL?.trim() || "/api/settings"
 
 type ApiResponse = { settings?: SiteSettings };
 
+const normalizeSettings = (value: Partial<SiteSettings> | null | undefined): SiteSettings => ({
+  integrations: {
+    ...defaultSettings.integrations,
+    ...(value?.integrations ?? {}),
+  },
+  deals: {
+    ...defaultSettings.deals,
+    ...(value?.deals ?? {}),
+  },
+});
+
 const parse = (value: string | null): SiteSettings => {
   if (!value) return defaultSettings;
   try {
-    const parsed = JSON.parse(value) as SiteSettings;
-    return parsed?.integrations ? parsed : defaultSettings;
+    const parsed = JSON.parse(value) as Partial<SiteSettings>;
+    return normalizeSettings(parsed);
   } catch {
     return defaultSettings;
   }
@@ -32,8 +43,9 @@ export const loadSettings = async () => {
     const response = await fetch(API_URL, { cache: "no-store" });
     if (!response.ok) return local;
     const data = (await response.json()) as ApiResponse | SiteSettings;
-    const remote = "integrations" in data ? data : data.settings;
-    if (!remote) return local;
+    const remoteRaw = "integrations" in data ? data : data.settings;
+    if (!remoteRaw) return local;
+    const remote = normalizeSettings(remoteRaw);
     writeLocal(remote);
     return remote;
   } catch {

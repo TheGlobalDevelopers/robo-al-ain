@@ -44,7 +44,7 @@ export const loadNotifications = async () => {
     if (!response.ok) return local;
     const remote = parseResponse((await response.json()) as AdminNotification[] | ApiResponse);
     if (!remote.length) return local;
-    const merged = mergeNotifications([...remote, ...local]);
+    const merged = mergeNotifications([...local, ...remote]);
     writeLocal(merged);
     return merged;
   } catch {

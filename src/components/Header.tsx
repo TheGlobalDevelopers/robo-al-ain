@@ -4,7 +4,6 @@ import { Input } from "@/components/ui/input";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Language, translations } from "@/lib/i18n";
-import { scrollToId } from "@/lib/scroll";
 import { roboLogoDataUrl } from "@/lib/brand";
 import { loadLocationLabelCookie } from "@/lib/cookies";
 
@@ -117,7 +116,11 @@ const Header = ({
                 className="shrink-0 text-sm font-medium hover:bg-primary/10 hover:text-primary rounded-full"
                 onClick={() => {
                   onCategorySelect(item.id);
-                  scrollToId(item.scroll);
+                  if (item.id === "All") {
+                    navigate("/");
+                  } else {
+                    navigate(`/products/${item.id.toLowerCase()}`);
+                  }
                 }}
               >
                 {item.label}
@@ -135,7 +138,11 @@ const Header = ({
                   onClick={() => {
                     setIsMenuOpen(false);
                     onCategorySelect(item.id);
-                    scrollToId(item.scroll);
+                    if (item.id === "All") {
+                      navigate("/");
+                    } else {
+                      navigate(`/products/${item.id.toLowerCase()}`);
+                    }
                   }}
                 >
                   {item.label}

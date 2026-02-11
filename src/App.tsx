@@ -16,6 +16,7 @@ import { hasRemoteOffersApi, loadOffers, saveOffers } from "@/lib/offerStore";
 import { Offer } from "@/types/offer";
 import CartPage from "./pages/CartPage";
 import PaymentInfoPage from "./pages/PaymentInfoPage";
+import ProductsPage from "./pages/ProductsPage";
 import { defaultSettings, SiteSettings } from "@/types/settings";
 import { hasRemoteSettingsApi, loadSettings, saveSettings } from "@/lib/settingsStore";
 import { AdminNotification } from "@/types/notification";
@@ -203,7 +204,9 @@ const App = () => {
         <Sonner />
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<Index products={products} offers={offers} onCreateOrder={handleCreateOrder} />} />
+            <Route path="/" element={<Index products={products} offers={offers} onCreateOrder={handleCreateOrder} settings={settings} />} />
+            <Route path="/products/:category" element={<ProductsPage products={products} onCreateOrder={handleCreateOrder} />} />
+            <Route path="/products" element={<ProductsPage products={products} onCreateOrder={handleCreateOrder} />} />
             <Route path="/cart" element={<CartPage onCreateOrder={handleCreateOrder} />} />
             <Route
               path="/admin/*"
