@@ -1,4 +1,4 @@
-import { hasAnyStorage, readCollection, writeCollection } from "./_storage";
+import { hasAnyStorage, readCollection, writeCollection } from "./_storage.js";
 
 const KV_KEY = "storefront-offers";
 
