@@ -12,9 +12,18 @@ export interface DealsSettings {
   endAtIso?: string;
 }
 
+export interface PromoCode {
+  id: number;
+  code: string;
+  discountPercent: number;
+  active: boolean;
+  createdAt: string;
+}
+
 export interface SiteSettings {
   integrations: IntegrationSettings;
   deals: DealsSettings;
+  promoCodes: PromoCode[];
 }
 
 export const defaultSettings: SiteSettings = {
@@ -30,4 +39,5 @@ export const defaultSettings: SiteSettings = {
     subtitle: "Fresh offers updated regularly.",
     endAtIso: "",
   },
+  promoCodes: [],
 };

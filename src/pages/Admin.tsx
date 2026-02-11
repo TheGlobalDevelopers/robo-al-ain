@@ -31,6 +31,7 @@ const menu = [
   { path: "/admin", label: "Dashboard" },
   { path: "/admin/prices", label: "Prices" },
   { path: "/admin/offers", label: "Offers" },
+  { path: "/admin/promos", label: "Promo Codes" },
   { path: "/admin/deals", label: "Deals Editor" },
   { path: "/admin/requests", label: "Requests" },
   { path: "/admin/integrations", label: "API Settings" },
@@ -59,6 +60,7 @@ const Admin = ({
   const [newOffer, setNewOffer] = useState({ productId: "", title: "", description: "", discountPercent: "10" });
   const [newProduct, setNewProduct] = useState({ name: "", price: "", category: "", image: "", unit: "", originalPrice: "" });
   const [newStaff, setNewStaff] = useState({ fullName: "", email: "", phone: "", canViewOrders: true, canViewProfits: false, canViewCards: false });
+  const [newPromo, setNewPromo] = useState({ code: "", discountPercent: "10" });
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
@@ -144,6 +146,35 @@ const Admin = ({
     };
     onOffersChange([nextOffer, ...offers]);
     setNewOffer({ productId: "", title: "", description: "", discountPercent: "10" });
+  };
+
+
+  const createPromo = () => {
+    if (!newPromo.code.trim()) {
+      toast.error("Enter promo code.");
+      return;
+    }
+    const discount = Number(newPromo.discountPercent || 0);
+    if (!discount || discount <= 0 || discount > 90) {
+      toast.error("Discount must be between 1 and 90.");
+      return;
+    }
+
+    onSettingsChange({
+      ...settings,
+      promoCodes: [
+        {
+          id: Date.now(),
+          code: newPromo.code.trim().toUpperCase(),
+          discountPercent: discount,
+          active: true,
+          createdAt: new Date().toLocaleString(),
+        },
+        ...settings.promoCodes.filter((item) => item.code.toUpperCase() !== newPromo.code.trim().toUpperCase()),
+      ],
+    });
+    setNewPromo({ code: "", discountPercent: "10" });
+    addNotification("Promo code created", "offer");
   };
 
   const createStaff = () => {
@@ -320,6 +351,31 @@ const Admin = ({
                 </Button>
               </div>
             ))}
+          </section>
+        )}
+
+
+        {section === "/promos" && (
+          <section className="rounded-xl border border-border p-4 space-y-3">
+            <h2 className="text-xl font-semibold">Promo Codes</h2>
+            <div className="grid gap-2 md:grid-cols-3">
+              <Input placeholder="Code (e.g. RAMADAN20)" value={newPromo.code} onChange={(event) => setNewPromo((prev) => ({ ...prev, code: event.target.value }))} />
+              <Input placeholder="Discount %" type="number" value={newPromo.discountPercent} onChange={(event) => setNewPromo((prev) => ({ ...prev, discountPercent: event.target.value }))} />
+              <Button onClick={createPromo}>Create promo</Button>
+            </div>
+            <div className="space-y-2">
+              {settings.promoCodes.length ? settings.promoCodes.map((promo) => (
+                <div key={promo.id} className="rounded-lg border border-border p-3 flex items-center justify-between gap-2 text-sm">
+                  <div>
+                    <p className="font-medium">{promo.code}</p>
+                    <p className="text-muted-foreground">{promo.discountPercent}% off</p>
+                  </div>
+                  <Button variant={promo.active ? "outline" : "default"} onClick={() => onSettingsChange({ ...settings, promoCodes: settings.promoCodes.map((item) => item.id === promo.id ? { ...item, active: !item.active } : item) })}>
+                    {promo.active ? "Disable" : "Enable"}
+                  </Button>
+                </div>
+              )) : <p className="text-sm text-muted-foreground">No promo codes yet.</p>}
+            </div>
           </section>
         )}
 

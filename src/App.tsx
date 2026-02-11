@@ -26,6 +26,7 @@ import { Subscriber } from "@/types/subscriber";
 import { loadSubscribers, saveSubscribers } from "@/lib/subscriberStore";
 import { UserAccount } from "@/types/account";
 import { loadAccounts, saveAccounts } from "@/lib/accountStore";
+import { loadCurrentAccountId, saveCurrentAccountId } from "@/lib/accountSession";
 
 const queryClient = new QueryClient();
 
@@ -37,6 +38,7 @@ const App = () => {
   const [notifications, setNotifications] = useState<AdminNotification[]>([]);
   const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
   const [accounts, setAccounts] = useState<UserAccount[]>([]);
+  const [currentAccountId, setCurrentAccountId] = useState<number | null>(loadCurrentAccountId());
   const hasHydratedProducts = useRef(false);
   const isApplyingRemote = useRef(false);
 
@@ -125,6 +127,10 @@ const App = () => {
   }, [accounts]);
 
   useEffect(() => {
+    saveCurrentAccountId(currentAccountId);
+  }, [currentAccountId]);
+
+  useEffect(() => {
     if (typeof window === "undefined" || !products.length || !orders.length) {
       return;
     }
@@ -209,8 +215,8 @@ const App = () => {
     setOrders((prev) => mergeOrders([order, ...prev]));
     setAccounts((prev) =>
       prev.map((account) => {
-        const phoneMatches = account.phone.replace(/\D/g, "") && account.phone.replace(/\D/g, "") === order.phone.replace(/\D/g, "");
-        if (!phoneMatches) return account;
+        const accountMatches = order.accountId ? account.id === order.accountId : (account.phone.replace(/\D/g, "") && account.phone.replace(/\D/g, "") === order.phone.replace(/\D/g, ""));
+        if (!accountMatches) return account;
 
         const paymentHistory = [
           ...account.paymentHistory.filter((item) => item.orderId !== order.id),
@@ -268,7 +274,7 @@ const App = () => {
             <Route path="/" element={<Index products={products} offers={offers} onCreateOrder={handleCreateOrder} settings={settings} />} />
             <Route path="/products/:category" element={<ProductsPage products={products} onCreateOrder={handleCreateOrder} />} />
             <Route path="/products" element={<ProductsPage products={products} onCreateOrder={handleCreateOrder} />} />
-            <Route path="/cart" element={<CartPage onCreateOrder={handleCreateOrder} />} />
+            <Route path="/cart" element={<CartPage onCreateOrder={handleCreateOrder} settings={settings} currentAccount={accounts.find((a) => a.id === currentAccountId) ?? null} />} />
             <Route
               path="/admin/*"
               element={
@@ -288,7 +294,7 @@ const App = () => {
               }
             />
             <Route path="/payments/:type" element={<PaymentInfoPage />} />
-            <Route path="/account" element={<AccountPage accounts={accounts} onAccountsChange={setAccounts} orders={orders} settings={settings} />} />
+            <Route path="/account" element={<AccountPage accounts={accounts} onAccountsChange={setAccounts} orders={orders} settings={settings} currentAccountId={currentAccountId} onCurrentAccountChange={setCurrentAccountId} />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

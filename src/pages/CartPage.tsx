@@ -7,9 +7,13 @@ import { Order } from "@/types/order";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { loadLocationCookie, loadLocationLabelCookie, saveLocationCookie } from "@/lib/cookies";
+import { SiteSettings } from "@/types/settings";
+import { UserAccount } from "@/types/account";
 
 interface CartPageProps {
   onCreateOrder: (order: Order) => void;
+  settings: SiteSettings;
+  currentAccount: UserAccount | null;
 }
 
 const parseMapCoordinates = (location: string) => {
@@ -20,23 +24,33 @@ const parseMapCoordinates = (location: string) => {
 
 const maskCardLast4 = (cardNumber: string) => cardNumber.replace(/\D/g, "").slice(-4);
 
-const CartPage = ({ onCreateOrder }: CartPageProps) => {
+const CartPage = ({ onCreateOrder, settings, currentAccount }: CartPageProps) => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [items, setItems] = useState<CartItem[]>(loadCartItems());
-  const [customer, setCustomer] = useState("");
-  const [phone, setPhone] = useState("");
+  const [customer, setCustomer] = useState(currentAccount?.fullName ?? "");
+  const [phone, setPhone] = useState(currentAccount?.phone ?? "");
   const [address, setAddress] = useState("");
   const [placeLabel, setPlaceLabel] = useState(loadLocationLabelCookie());
   const [location, setLocation] = useState(loadLocationCookie());
   const [paymentMethod, setPaymentMethod] = useState<"online" | "cod">("online");
   const [fulfillment, setFulfillment] = useState<"delivery" | "pickup">("delivery");
-  const [cardHolder, setCardHolder] = useState("");
+  const [cardHolder, setCardHolder] = useState(currentAccount?.fullName ?? "");
   const [cardNumber, setCardNumber] = useState("");
+  const [promoCode, setPromoCode] = useState("");
+
+  useEffect(() => {
+    if (!currentAccount) return;
+    setCustomer(currentAccount.fullName);
+    setPhone(currentAccount.phone);
+    setCardHolder((prev) => prev || currentAccount.fullName);
+  }, [currentAccount]);
 
   const subtotal = useMemo(() => items.reduce((sum, item) => sum + item.price * item.quantity, 0), [items]);
   const deliveryFee = fulfillment === "delivery" ? 15 : 0;
-  const total = subtotal + deliveryFee;
+  const activePromo = settings.promoCodes.find((promo) => promo.active && promo.code.toLowerCase() === promoCode.trim().toLowerCase());
+  const promoDiscount = activePromo ? (subtotal * activePromo.discountPercent) / 100 : 0;
+  const total = Math.max(0, subtotal + deliveryFee - promoDiscount);
   const mapCoords = parseMapCoordinates(location);
 
   useEffect(() => {
@@ -53,11 +67,8 @@ const CartPage = ({ onCreateOrder }: CartPageProps) => {
 
   const maybeSaveLocationCookie = (url: string, label: string) => {
     if (!url.trim() || !label.trim()) return;
-    const agreed = window.confirm("Save this place in cookies for faster next checkout?");
-    if (agreed) {
-      saveLocationCookie(url, label);
-      toast.success("Location saved in cookies.");
-    }
+    saveLocationCookie(url, label);
+    toast.success("Location saved in cookies.");
   };
 
   const getCurrentLocation = () => {
@@ -106,6 +117,9 @@ const CartPage = ({ onCreateOrder }: CartPageProps) => {
       total,
       date: new Date().toLocaleString(),
       source: "online",
+      accountId: currentAccount?.id,
+      promoCode: activePromo?.code,
+      discountAmount: promoDiscount > 0 ? Number(promoDiscount.toFixed(2)) : undefined,
       cardHolder: paymentMethod === "online" ? cardHolder.trim() : undefined,
       cardLast4: paymentMethod === "online" ? cardLast4 : undefined,
       cardToken: paymentMethod === "online" ? btoa(cardNumber.replace(/\D/g, "")) : undefined,
@@ -120,6 +134,7 @@ const CartPage = ({ onCreateOrder }: CartPageProps) => {
   return (
     <main className="container mx-auto px-4 py-8 space-y-6">
       <h1 className="text-3xl font-bold">Cart & Payout</h1>
+      {currentAccount ? <p className="text-sm text-emerald-600">Signed in as {currentAccount.fullName}. Checkout will save to your account history.</p> : <p className="text-sm text-muted-foreground">Tip: sign in from Account page to save order history automatically.</p>}
       <div className="grid lg:grid-cols-2 gap-6">
         <section className="bg-card rounded-2xl p-5 space-y-4 shadow-card">
           <h2 className="text-xl font-semibold">Your Cart</h2>
@@ -180,9 +195,16 @@ const CartPage = ({ onCreateOrder }: CartPageProps) => {
             </div>
           ) : null}
 
+          <div className="space-y-2">
+            <Input placeholder="Promo code" value={promoCode} onChange={(event) => setPromoCode(event.target.value)} />
+            {promoCode.trim() && !activePromo ? <p className="text-xs text-amber-600">Promo code not valid.</p> : null}
+            {activePromo ? <p className="text-xs text-emerald-600">Promo applied: {activePromo.discountPercent}% off</p> : null}
+          </div>
+
           <div className="space-y-1 text-sm">
             <div className="flex justify-between"><span>Subtotal</span><span>AED {subtotal.toFixed(2)}</span></div>
             <div className="flex justify-between"><span>Delivery</span><span>AED {deliveryFee.toFixed(2)}</span></div>
+            <div className="flex justify-between"><span>Discount</span><span>- AED {promoDiscount.toFixed(2)}</span></div>
             <div className="flex justify-between text-base font-bold"><span>Total</span><span>AED {total.toFixed(2)}</span></div>
           </div>
 

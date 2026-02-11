@@ -14,6 +14,7 @@ const normalizeSettings = (value: Partial<SiteSettings> | null | undefined): Sit
     ...defaultSettings.deals,
     ...(value?.deals ?? {}),
   },
+  promoCodes: Array.isArray(value?.promoCodes) ? value.promoCodes : defaultSettings.promoCodes,
 });
 
 const parse = (value: string | null): SiteSettings => {
