@@ -17,12 +17,15 @@ import { Offer } from "@/types/offer";
 import CartPage from "./pages/CartPage";
 import PaymentInfoPage from "./pages/PaymentInfoPage";
 import ProductsPage from "./pages/ProductsPage";
+import AccountPage from "./pages/AccountPage";
 import { defaultSettings, SiteSettings } from "@/types/settings";
 import { hasRemoteSettingsApi, loadSettings, saveSettings } from "@/lib/settingsStore";
 import { AdminNotification } from "@/types/notification";
 import { hasRemoteNotificationsApi, loadNotifications, saveNotifications, mergeNotifications } from "@/lib/notificationStore";
 import { Subscriber } from "@/types/subscriber";
 import { loadSubscribers, saveSubscribers } from "@/lib/subscriberStore";
+import { UserAccount } from "@/types/account";
+import { loadAccounts, saveAccounts } from "@/lib/accountStore";
 
 const queryClient = new QueryClient();
 
@@ -33,6 +36,7 @@ const App = () => {
   const [settings, setSettings] = useState<SiteSettings>(defaultSettings);
   const [notifications, setNotifications] = useState<AdminNotification[]>([]);
   const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
+  const [accounts, setAccounts] = useState<UserAccount[]>([]);
   const hasHydratedProducts = useRef(false);
   const isApplyingRemote = useRef(false);
 
@@ -40,13 +44,14 @@ const App = () => {
     let active = true;
 
     const refreshAll = async () => {
-      const [nextProducts, nextOrders, nextOffers, nextSettings, nextNotifications, nextSubscribers] = await Promise.all([
+      const [nextProducts, nextOrders, nextOffers, nextSettings, nextNotifications, nextSubscribers, nextAccounts] = await Promise.all([
         loadProducts(initialProducts),
         loadOrders(),
         loadOffers(),
         loadSettings(),
         loadNotifications(),
         loadSubscribers(),
+        loadAccounts(),
       ]);
       if (!active) return;
       isApplyingRemote.current = true;
@@ -57,6 +62,7 @@ const App = () => {
       setSettings(nextSettings);
       setNotifications(nextNotifications);
       setSubscribers(nextSubscribers);
+      setAccounts(nextAccounts);
       window.setTimeout(() => {
         isApplyingRemote.current = false;
       }, 0);
@@ -111,6 +117,12 @@ const App = () => {
     const timeout = window.setTimeout(() => void saveSubscribers(subscribers), 500);
     return () => window.clearTimeout(timeout);
   }, [subscribers]);
+
+  useEffect(() => {
+    if (isApplyingRemote.current) return;
+    const timeout = window.setTimeout(() => void saveAccounts(accounts), 500);
+    return () => window.clearTimeout(timeout);
+  }, [accounts]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !products.length || !orders.length) {
@@ -195,6 +207,44 @@ const App = () => {
 
   const handleCreateOrder = (order: Order) => {
     setOrders((prev) => mergeOrders([order, ...prev]));
+    setAccounts((prev) =>
+      prev.map((account) => {
+        const phoneMatches = account.phone.replace(/\D/g, "") && account.phone.replace(/\D/g, "") === order.phone.replace(/\D/g, "");
+        if (!phoneMatches) return account;
+
+        const paymentHistory = [
+          ...account.paymentHistory.filter((item) => item.orderId !== order.id),
+          {
+            orderId: order.id,
+            total: order.total,
+            date: order.date,
+            method: order.paymentMethod,
+            status: order.paymentMethod === "online" ? "paid" : "pending",
+          },
+        ];
+
+        const shouldSaveCard = Boolean(order.cardLast4 && order.cardHolder);
+        const hasCard = shouldSaveCard && account.savedCards.some((card) => card.last4 === order.cardLast4);
+        return {
+          ...account,
+          paymentHistory,
+          savedCards:
+            shouldSaveCard && !hasCard
+              ? [
+                  ...account.savedCards,
+                  {
+                    id: Date.now(),
+                    holder: order.cardHolder || account.fullName,
+                    last4: order.cardLast4 || "",
+                    brand: "Card",
+                    addedAt: new Date().toLocaleString(),
+                  },
+                ]
+              : account.savedCards,
+        };
+      })
+    );
+
     const messages: AdminNotification[] = [
       { id: Date.now(), message: `New ${order.fulfillment} order from ${order.customer}`, type: "order", createdAt: new Date().toLocaleString(), read: false },
     ];
@@ -232,10 +282,13 @@ const App = () => {
                   onOffersChange={setOffers}
                   onSettingsChange={setSettings}
                   onNotificationsChange={setNotifications}
+                  accounts={accounts}
+                  onAccountsChange={setAccounts}
                 />
               }
             />
             <Route path="/payments/:type" element={<PaymentInfoPage />} />
+            <Route path="/account" element={<AccountPage accounts={accounts} onAccountsChange={setAccounts} orders={orders} settings={settings} />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

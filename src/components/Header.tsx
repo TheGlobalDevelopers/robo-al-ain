@@ -1,4 +1,4 @@
-import { ShoppingCart, Search, Menu, X, MapPin, Truck } from "lucide-react";
+import { ShoppingCart, Search, Menu, X, MapPin, Truck, UserCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useMemo, useState } from "react";
@@ -95,6 +95,9 @@ const Header = ({
           </div>
 
           <div className="flex items-center gap-1 sm:gap-2">
+            <Button variant="ghost" size="icon" onClick={() => navigate("/account")} aria-label="Open account">
+              <UserCircle2 className="h-5 w-5" />
+            </Button>
             <Button variant="default" className="gap-1 sm:gap-2 bg-accent hover:bg-accent/90 text-accent-foreground rounded-full px-3 sm:px-4" onClick={onCartClick}>
               <ShoppingCart className="h-5 w-5" />
               <span className="font-bold">{cartCount}</span>
