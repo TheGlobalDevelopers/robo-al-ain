@@ -34,6 +34,7 @@ const App = () => {
   const [notifications, setNotifications] = useState<AdminNotification[]>([]);
   const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
   const hasHydratedProducts = useRef(false);
+  const isApplyingRemote = useRef(false);
 
   useEffect(() => {
     let active = true;
@@ -48,6 +49,7 @@ const App = () => {
         loadSubscribers(),
       ]);
       if (!active) return;
+      isApplyingRemote.current = true;
       setProducts(nextProducts);
       hasHydratedProducts.current = true;
       setOrders(nextOrders);
@@ -55,6 +57,9 @@ const App = () => {
       setSettings(nextSettings);
       setNotifications(nextNotifications);
       setSubscribers(nextSubscribers);
+      window.setTimeout(() => {
+        isApplyingRemote.current = false;
+      }, 0);
     };
 
     void refreshAll();
@@ -72,31 +77,37 @@ const App = () => {
   }, []);
 
   useEffect(() => {
+    if (isApplyingRemote.current) return;
     void saveOrders(orders);
   }, [orders]);
 
   useEffect(() => {
     if (!hasHydratedProducts.current) return;
+    if (isApplyingRemote.current) return;
     const timeout = window.setTimeout(() => void saveProducts(products), 500);
     return () => window.clearTimeout(timeout);
   }, [products]);
 
   useEffect(() => {
+    if (isApplyingRemote.current) return;
     const timeout = window.setTimeout(() => void saveOffers(offers), 500);
     return () => window.clearTimeout(timeout);
   }, [offers]);
 
   useEffect(() => {
+    if (isApplyingRemote.current) return;
     const timeout = window.setTimeout(() => void saveSettings(settings), 500);
     return () => window.clearTimeout(timeout);
   }, [settings]);
 
   useEffect(() => {
+    if (isApplyingRemote.current) return;
     const timeout = window.setTimeout(() => void saveNotifications(notifications), 500);
     return () => window.clearTimeout(timeout);
   }, [notifications]);
 
   useEffect(() => {
+    if (isApplyingRemote.current) return;
     const timeout = window.setTimeout(() => void saveSubscribers(subscribers), 500);
     return () => window.clearTimeout(timeout);
   }, [subscribers]);
