@@ -61,11 +61,17 @@ export const saveOffers = async (offers: Offer[]) => {
   writeLocal(offers);
   if (!API_URL) return;
   try {
-    await fetch(API_URL, {
+    const response = await fetch(API_URL, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ offers }),
     });
+    if (!response.ok) return;
+    const data = (await response.json()) as Offer[] | ApiResponse;
+    const remote = parseResponse(data);
+    if (!remote.length) return;
+    const merged = mergeOffers([...offers, ...remote]);
+    writeLocal(merged);
   } catch {
     // local fallback already saved
   }
