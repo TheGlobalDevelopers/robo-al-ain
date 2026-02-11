@@ -7,6 +7,8 @@ import { toast } from "sonner";
 import { roboLogoDataUrl } from "@/lib/brand";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Product } from "@/types/product";
+import { useState } from "react";
+import { subscribeEmail } from "@/lib/subscriberStore";
 
 interface FooterProps {
   language: Language;
@@ -17,6 +19,7 @@ interface FooterProps {
 const Footer = ({ language, onCategorySelect, products }: FooterProps) => {
   const t = translations[language];
   const [addressLineOne, addressLineTwo] = t.footer.address.split("\n");
+  const [email, setEmail] = useState("");
   const navigate = useNavigate();
   const location = useLocation();
   const categories = Array.from(new Set(products.map((product) => product.category))).slice(0, 7);
@@ -30,6 +33,17 @@ const Footer = ({ language, onCategorySelect, products }: FooterProps) => {
     scrollToId(id);
   };
 
+  const handleSubscribe = async () => {
+    const trimmed = email.trim().toLowerCase();
+    if (!trimmed || !trimmed.includes("@")) {
+      toast.error("Please enter a valid email.");
+      return;
+    }
+    await subscribeEmail(trimmed);
+    toast.success("Subscribed! Offers can be sent every 3 days via configured Email API.");
+    setEmail("");
+  };
+
   return (
     <footer id="contact" className="bg-foreground text-background">
       <div className="bg-primary py-8">
@@ -40,8 +54,8 @@ const Footer = ({ language, onCategorySelect, products }: FooterProps) => {
               <p className="text-primary-foreground/80">{t.footer.newsletterSubtitle}</p>
             </div>
             <div className="flex gap-2 w-full md:w-auto">
-              <Input type="email" placeholder={t.footer.emailPlaceholder} className="h-12 bg-primary-foreground border-0 text-foreground rounded-full w-full md:w-72" />
-              <Button type="button" className="h-12 bg-accent hover:bg-accent/90 text-accent-foreground rounded-full px-6" onClick={() => toast.success(t.footer.subscribeToast)}>
+              <Input type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder={t.footer.emailPlaceholder} className="h-12 bg-primary-foreground border-0 text-foreground rounded-full w-full md:w-72" />
+              <Button type="button" className="h-12 bg-accent hover:bg-accent/90 text-accent-foreground rounded-full px-6" onClick={handleSubscribe}>
                 {t.footer.subscribe}
               </Button>
             </div>
@@ -77,13 +91,7 @@ const Footer = ({ language, onCategorySelect, products }: FooterProps) => {
               <ul className="space-y-2 text-sm text-background/70">
                 {categories.map((category) => (
                   <li key={category}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onCategorySelect(category);
-                        goHomeAndScroll("products");
-                      }}
-                    >
+                    <button type="button" onClick={() => { onCategorySelect(category); goHomeAndScroll("products"); }}>
                       {category}
                     </button>
                   </li>

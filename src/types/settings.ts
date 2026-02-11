@@ -2,6 +2,7 @@ export interface IntegrationSettings {
   emailApiKey: string;
   paymentGatewayKey: string;
   smsApiKey: string;
+  whatsappApiKey: string;
   webhookUrl: string;
 }
 
@@ -14,6 +15,7 @@ export const defaultSettings: SiteSettings = {
     emailApiKey: "",
     paymentGatewayKey: "",
     smsApiKey: "",
+    whatsappApiKey: "",
     webhookUrl: "",
   },
 };

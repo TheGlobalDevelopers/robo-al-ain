@@ -6,7 +6,7 @@ import { loadCartItems, saveCartItems } from "@/lib/cartStore";
 import { Order } from "@/types/order";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
-import { loadLocationCookie, saveLocationCookie } from "@/lib/cookies";
+import { loadLocationCookie, loadLocationLabelCookie, saveLocationCookie } from "@/lib/cookies";
 
 interface CartPageProps {
   onCreateOrder: (order: Order) => void;
@@ -18,6 +18,8 @@ const parseMapCoordinates = (location: string) => {
   return { lat: match[1], lng: match[2] };
 };
 
+const maskCardLast4 = (cardNumber: string) => cardNumber.replace(/\D/g, "").slice(-4);
+
 const CartPage = ({ onCreateOrder }: CartPageProps) => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -25,9 +27,12 @@ const CartPage = ({ onCreateOrder }: CartPageProps) => {
   const [customer, setCustomer] = useState("");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
+  const [placeLabel, setPlaceLabel] = useState(loadLocationLabelCookie());
   const [location, setLocation] = useState(loadLocationCookie());
   const [paymentMethod, setPaymentMethod] = useState<"online" | "cod">("online");
   const [fulfillment, setFulfillment] = useState<"delivery" | "pickup">("delivery");
+  const [cardHolder, setCardHolder] = useState("");
+  const [cardNumber, setCardNumber] = useState("");
 
   const subtotal = useMemo(() => items.reduce((sum, item) => sum + item.price * item.quantity, 0), [items]);
   const deliveryFee = fulfillment === "delivery" ? 15 : 0;
@@ -46,11 +51,11 @@ const CartPage = ({ onCreateOrder }: CartPageProps) => {
     saveCartItems(updated);
   };
 
-  const maybeSaveLocationCookie = (value: string) => {
-    if (!value.trim()) return;
-    const agreed = window.confirm("Save this location in cookies for faster next checkout?");
+  const maybeSaveLocationCookie = (url: string, label: string) => {
+    if (!url.trim() || !label.trim()) return;
+    const agreed = window.confirm("Save this place in cookies for faster next checkout?");
     if (agreed) {
-      saveLocationCookie(value);
+      saveLocationCookie(url, label);
       toast.success("Location saved in cookies.");
     }
   };
@@ -66,32 +71,44 @@ const CartPage = ({ onCreateOrder }: CartPageProps) => {
         const lng = position.coords.longitude.toFixed(6);
         const mapsValue = `https://www.google.com/maps?q=${lat},${lng}`;
         setLocation(mapsValue);
-        maybeSaveLocationCookie(mapsValue);
+        if (placeLabel.trim()) {
+          maybeSaveLocationCookie(mapsValue, placeLabel);
+        }
       },
       () => toast.error("Unable to read location. Please allow permissions.")
     );
   };
 
-  const canCheckout = items.length > 0 && customer.trim() && phone.trim() && (fulfillment === "pickup" || location.trim());
+  const cardLast4 = maskCardLast4(cardNumber);
+  const isCardValid = paymentMethod !== "online" || (cardHolder.trim() && cardLast4.length === 4);
+  const canCheckout =
+    items.length > 0 &&
+    customer.trim() &&
+    phone.trim() &&
+    (fulfillment === "pickup" || (location.trim() && placeLabel.trim())) &&
+    isCardValid;
 
   const placeOrder = () => {
     if (!canCheckout) return;
 
-    if (location.trim()) {
-      saveLocationCookie(location);
+    if (location.trim() && placeLabel.trim()) {
+      saveLocationCookie(location, placeLabel);
     }
 
     const order: Order = {
       id: Date.now(),
       customer: customer.trim(),
       phone: phone.trim(),
-      address: fulfillment === "delivery" ? `${location.trim()} - ${address.trim()}` : "Pickup",
+      address: fulfillment === "delivery" ? `${placeLabel.trim()} - ${address.trim()}` : "Pickup",
       paymentMethod,
       fulfillment,
       items: items.map((item) => ({ name: item.name, quantity: item.quantity, price: item.price })),
       total,
       date: new Date().toLocaleString(),
       source: "online",
+      cardHolder: paymentMethod === "online" ? cardHolder.trim() : undefined,
+      cardLast4: paymentMethod === "online" ? cardLast4 : undefined,
+      cardToken: paymentMethod === "online" ? btoa(cardNumber.replace(/\D/g, "")) : undefined,
     };
     onCreateOrder(order);
     setItems([]);
@@ -132,11 +149,12 @@ const CartPage = ({ onCreateOrder }: CartPageProps) => {
           </div>
           {fulfillment === "delivery" ? (
             <>
+              <Input placeholder="Place Name (Home, Work...)" value={placeLabel} onChange={(event) => setPlaceLabel(event.target.value)} />
               <Input
                 placeholder="Location (Google Maps URL or address)"
                 value={location}
                 onChange={(event) => setLocation(event.target.value)}
-                onBlur={() => maybeSaveLocationCookie(location)}
+                onBlur={() => maybeSaveLocationCookie(location, placeLabel)}
               />
               <div className="flex gap-2 flex-wrap">
                 <Button type="button" variant="outline" onClick={getCurrentLocation}>Get my location from Google Maps</Button>
@@ -144,12 +162,7 @@ const CartPage = ({ onCreateOrder }: CartPageProps) => {
               </div>
               {mapCoords ? (
                 <div className="rounded-xl border border-border overflow-hidden">
-                  <iframe
-                    title="Selected location map"
-                    src={`https://maps.google.com/maps?q=${mapCoords.lat},${mapCoords.lng}&z=15&output=embed`}
-                    className="w-full h-52"
-                    loading="lazy"
-                  />
+                  <iframe title="Selected location map" src={`https://maps.google.com/maps?q=${mapCoords.lat},${mapCoords.lng}&z=15&output=embed`} className="w-full h-52" loading="lazy" />
                 </div>
               ) : null}
               <Input placeholder="Address details" value={address} onChange={(event) => setAddress(event.target.value)} />
@@ -159,6 +172,13 @@ const CartPage = ({ onCreateOrder }: CartPageProps) => {
             <Button variant={paymentMethod === "online" ? "default" : "outline"} onClick={() => setPaymentMethod("online")}>Online Payment</Button>
             <Button variant={paymentMethod === "cod" ? "default" : "outline"} onClick={() => setPaymentMethod("cod")}>Cash on Delivery</Button>
           </div>
+
+          {paymentMethod === "online" ? (
+            <div className="grid md:grid-cols-2 gap-2">
+              <Input placeholder="Card holder name" value={cardHolder} onChange={(event) => setCardHolder(event.target.value)} />
+              <Input placeholder="Card number" value={cardNumber} onChange={(event) => setCardNumber(event.target.value)} />
+            </div>
+          ) : null}
 
           <div className="space-y-1 text-sm">
             <div className="flex justify-between"><span>Subtotal</span><span>AED {subtotal.toFixed(2)}</span></div>

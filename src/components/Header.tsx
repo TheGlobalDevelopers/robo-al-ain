@@ -6,7 +6,7 @@ import { useNavigate } from "react-router-dom";
 import { Language, translations } from "@/lib/i18n";
 import { scrollToId } from "@/lib/scroll";
 import { roboLogoDataUrl } from "@/lib/brand";
-import { loadLocationCookie } from "@/lib/cookies";
+import { loadLocationLabelCookie } from "@/lib/cookies";
 
 interface HeaderProps {
   cartCount: number;
@@ -29,7 +29,7 @@ const Header = ({
 }: HeaderProps) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const t = translations[language];
-  const savedLocation = loadLocationCookie();
+  const savedLocation = loadLocationLabelCookie();
   const navigate = useNavigate();
 
   const categories = useMemo(

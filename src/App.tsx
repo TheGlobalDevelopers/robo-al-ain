@@ -20,6 +20,8 @@ import { defaultSettings, SiteSettings } from "@/types/settings";
 import { hasRemoteSettingsApi, loadSettings, saveSettings } from "@/lib/settingsStore";
 import { AdminNotification } from "@/types/notification";
 import { hasRemoteNotificationsApi, loadNotifications, saveNotifications, mergeNotifications } from "@/lib/notificationStore";
+import { Subscriber } from "@/types/subscriber";
+import { loadSubscribers, saveSubscribers } from "@/lib/subscriberStore";
 
 const queryClient = new QueryClient();
 
@@ -29,18 +31,20 @@ const App = () => {
   const [offers, setOffers] = useState<Offer[]>([]);
   const [settings, setSettings] = useState<SiteSettings>(defaultSettings);
   const [notifications, setNotifications] = useState<AdminNotification[]>([]);
+  const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
   const hasHydratedProducts = useRef(false);
 
   useEffect(() => {
     let active = true;
 
     const refreshAll = async () => {
-      const [nextProducts, nextOrders, nextOffers, nextSettings, nextNotifications] = await Promise.all([
+      const [nextProducts, nextOrders, nextOffers, nextSettings, nextNotifications, nextSubscribers] = await Promise.all([
         loadProducts(initialProducts),
         loadOrders(),
         loadOffers(),
         loadSettings(),
         loadNotifications(),
+        loadSubscribers(),
       ]);
       if (!active) return;
       setProducts(nextProducts);
@@ -49,6 +53,7 @@ const App = () => {
       setOffers(nextOffers);
       setSettings(nextSettings);
       setNotifications(nextNotifications);
+      setSubscribers(nextSubscribers);
     };
 
     void refreshAll();
@@ -89,6 +94,11 @@ const App = () => {
     const timeout = window.setTimeout(() => void saveNotifications(notifications), 500);
     return () => window.clearTimeout(timeout);
   }, [notifications]);
+
+  useEffect(() => {
+    const timeout = window.setTimeout(() => void saveSubscribers(subscribers), 500);
+    return () => window.clearTimeout(timeout);
+  }, [subscribers]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !products.length || !orders.length) {
@@ -145,9 +155,44 @@ const App = () => {
     localStorage.setItem(dailyKey, today);
   }, [orders, products]);
 
+  useEffect(() => {
+    if (!subscribers.length || !offers.length || !settings.integrations.emailApiKey.trim()) {
+      return;
+    }
+    const now = Date.now();
+    const every3Days = 3 * 24 * 60 * 60 * 1000;
+    const due = subscribers.some((subscriber) => !subscriber.lastSentAt || now - new Date(subscriber.lastSentAt).getTime() >= every3Days);
+    if (!due) return;
+
+    setNotifications((prev) =>
+      mergeNotifications([
+        {
+          id: Date.now(),
+          message: `Newsletter campaign queued for ${subscribers.length} subscribers via Email API.`,
+          type: "system",
+          createdAt: new Date().toLocaleString(),
+          read: false,
+        },
+        ...prev,
+      ])
+    );
+
+    const stamp = new Date().toISOString();
+    setSubscribers((prev) => prev.map((subscriber) => ({ ...subscriber, lastSentAt: stamp })));
+  }, [subscribers, offers, settings.integrations.emailApiKey]);
+
   const handleCreateOrder = (order: Order) => {
     setOrders((prev) => mergeOrders([order, ...prev]));
-    setNotifications((prev) => mergeNotifications([{ id: Date.now(), message: `New ${order.fulfillment} order from ${order.customer}`, type: "order", createdAt: new Date().toLocaleString(), read: false }, ...prev]));
+    const messages: AdminNotification[] = [
+      { id: Date.now(), message: `New ${order.fulfillment} order from ${order.customer}`, type: "order", createdAt: new Date().toLocaleString(), read: false },
+    ];
+    if (settings.integrations.smsApiKey.trim()) {
+      messages.push({ id: Date.now() + 1, message: `SMS confirmation queued for ${order.phone}`, type: "system", createdAt: new Date().toLocaleString(), read: false });
+    }
+    if (settings.integrations.whatsappApiKey.trim()) {
+      messages.push({ id: Date.now() + 2, message: `WhatsApp confirmation queued for ${order.phone}`, type: "system", createdAt: new Date().toLocaleString(), read: false });
+    }
+    setNotifications((prev) => mergeNotifications([...messages, ...prev]));
     void pushOrder(order).then((nextOrders) => setOrders(nextOrders));
   };
 

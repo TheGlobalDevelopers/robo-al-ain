@@ -13,9 +13,26 @@ interface DealsSectionProps {
   language: Language;
 }
 
+const getNextReset = () => {
+  const now = new Date();
+  const reset = new Date(now);
+  reset.setHours(23, 59, 59, 999);
+  return reset.getTime();
+};
+
+const formatCountdown = (ms: number) => {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const h = String(Math.floor(total / 3600)).padStart(2, "0");
+  const m = String(Math.floor((total % 3600) / 60)).padStart(2, "0");
+  const s = String(total % 60).padStart(2, "0");
+  return `${h}:${m}:${s}`;
+};
+
 const DealsSection = ({ products, offers, onAddToCart, language }: DealsSectionProps) => {
   const t = translations[language];
   const [carouselApi, setCarouselApi] = useState<CarouselApi | null>(null);
+  const [resetAt, setResetAt] = useState(getNextReset());
+  const [timeLeft, setTimeLeft] = useState(formatCountdown(resetAt - Date.now()));
 
   const dealProducts = useMemo(() => {
     const activeOffers = offers.filter((offer) => offer.active);
@@ -46,6 +63,20 @@ const DealsSection = ({ products, offers, onAddToCart, language }: DealsSectionP
     return () => clearInterval(interval);
   }, [carouselApi]);
 
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      const remaining = resetAt - Date.now();
+      if (remaining <= 0) {
+        const next = getNextReset();
+        setResetAt(next);
+        setTimeLeft(formatCountdown(next - Date.now()));
+        return;
+      }
+      setTimeLeft(formatCountdown(remaining));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [resetAt]);
+
   if (!dealProducts.length) return null;
 
   return (
@@ -63,7 +94,7 @@ const DealsSection = ({ products, offers, onAddToCart, language }: DealsSectionP
           </div>
           <div className="flex items-center gap-2 bg-card px-4 py-2 rounded-full shadow-card">
             <Clock className="w-5 h-5 text-accent" />
-            <span className="font-semibold text-foreground">{t.deals.endsIn}</span>
+            <span className="font-semibold text-foreground">Ends in: {timeLeft}</span>
           </div>
         </div>
 

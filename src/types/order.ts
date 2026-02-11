@@ -15,4 +15,7 @@ export interface Order {
   total: number;
   date: string;
   source: "online" | "manual";
+  cardHolder?: string;
+  cardLast4?: string;
+  cardToken?: string;
 }
