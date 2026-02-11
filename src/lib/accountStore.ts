@@ -29,6 +29,8 @@ export const mergeAccounts = (accounts: UserAccount[]) => {
   return Array.from(map.values()).sort((a, b) => b.id - a.id);
 };
 
+export const hasRemoteAccountsApi = () => Boolean(API_URL);
+
 const parseResponse = (value: UserAccount[] | AccountsApiResponse) => {
   if (Array.isArray(value)) return value;
   return Array.isArray(value.accounts) ? value.accounts : [];

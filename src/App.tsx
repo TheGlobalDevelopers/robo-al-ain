@@ -18,6 +18,8 @@ import CartPage from "./pages/CartPage";
 import PaymentInfoPage from "./pages/PaymentInfoPage";
 import ProductsPage from "./pages/ProductsPage";
 import AccountPage from "./pages/AccountPage";
+import AccountLoginPage from "./pages/AccountLoginPage";
+import AccountRegisterPage from "./pages/AccountRegisterPage";
 import { defaultSettings, SiteSettings } from "@/types/settings";
 import { hasRemoteSettingsApi, loadSettings, saveSettings } from "@/lib/settingsStore";
 import { AdminNotification } from "@/types/notification";
@@ -25,7 +27,7 @@ import { hasRemoteNotificationsApi, loadNotifications, saveNotifications, mergeN
 import { Subscriber } from "@/types/subscriber";
 import { loadSubscribers, saveSubscribers } from "@/lib/subscriberStore";
 import { UserAccount } from "@/types/account";
-import { loadAccounts, saveAccounts } from "@/lib/accountStore";
+import { hasRemoteAccountsApi, loadAccounts, saveAccounts } from "@/lib/accountStore";
 import { loadCurrentAccountId, saveCurrentAccountId } from "@/lib/accountSession";
 
 const queryClient = new QueryClient();
@@ -71,7 +73,7 @@ const App = () => {
     };
 
     void refreshAll();
-    const shouldPoll = hasRemoteOrdersApi() || hasRemoteProductsApi() || hasRemoteOffersApi() || hasRemoteSettingsApi() || hasRemoteNotificationsApi();
+    const shouldPoll = hasRemoteOrdersApi() || hasRemoteProductsApi() || hasRemoteOffersApi() || hasRemoteSettingsApi() || hasRemoteNotificationsApi() || hasRemoteAccountsApi();
     if (!shouldPoll) {
       return () => {
         active = false;
@@ -294,7 +296,9 @@ const App = () => {
               }
             />
             <Route path="/payments/:type" element={<PaymentInfoPage />} />
-            <Route path="/account" element={<AccountPage accounts={accounts} onAccountsChange={setAccounts} orders={orders} settings={settings} currentAccountId={currentAccountId} onCurrentAccountChange={setCurrentAccountId} />} />
+            <Route path="/account" element={<AccountPage accounts={accounts} onAccountsChange={setAccounts} orders={orders} currentAccountId={currentAccountId} onCurrentAccountChange={setCurrentAccountId} />} />
+            <Route path="/account/login" element={<AccountLoginPage accounts={accounts} onCurrentAccountChange={setCurrentAccountId} />} />
+            <Route path="/account/register" element={<AccountRegisterPage accounts={accounts} onAccountsChange={setAccounts} settings={settings} onCurrentAccountChange={setCurrentAccountId} />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

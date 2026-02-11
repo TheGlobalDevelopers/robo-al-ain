@@ -6,7 +6,7 @@ import { loadCartItems, saveCartItems } from "@/lib/cartStore";
 import { Order } from "@/types/order";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
-import { loadLocationCookie, loadLocationLabelCookie, saveLocationCookie } from "@/lib/cookies";
+import { loadAccountNameCookie, loadAccountPhoneCookie, loadLocationCookie, loadLocationLabelCookie, saveLocationCookie } from "@/lib/cookies";
 import { SiteSettings } from "@/types/settings";
 import { UserAccount } from "@/types/account";
 
@@ -28,8 +28,8 @@ const CartPage = ({ onCreateOrder, settings, currentAccount }: CartPageProps) =>
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [items, setItems] = useState<CartItem[]>(loadCartItems());
-  const [customer, setCustomer] = useState(currentAccount?.fullName ?? "");
-  const [phone, setPhone] = useState(currentAccount?.phone ?? "");
+  const [customer, setCustomer] = useState(currentAccount?.fullName ?? loadAccountNameCookie());
+  const [phone, setPhone] = useState(currentAccount?.phone ?? loadAccountPhoneCookie());
   const [address, setAddress] = useState("");
   const [placeLabel, setPlaceLabel] = useState(loadLocationLabelCookie());
   const [location, setLocation] = useState(loadLocationCookie());
