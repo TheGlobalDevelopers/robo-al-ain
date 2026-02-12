@@ -35,6 +35,7 @@ export interface UserAccount {
   permissions: AccountPermissions;
   paymentHistory: PaymentHistoryItem[];
   savedCards: SavedCard[];
+  cartItems?: import("@/types/product").CartItem[];
 }
 
 export const customerPermissions: AccountPermissions = {

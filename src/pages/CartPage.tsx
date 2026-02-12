@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CartItem } from "@/types/product";
-import { loadCartItems, saveCartItems } from "@/lib/cartStore";
 import { Order } from "@/types/order";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -14,6 +13,8 @@ interface CartPageProps {
   onCreateOrder: (order: Order) => void;
   settings: SiteSettings;
   currentAccount: UserAccount | null;
+  items: CartItem[];
+  onItemsChange: (items: CartItem[]) => void;
 }
 
 const parseMapCoordinates = (location: string) => {
@@ -24,10 +25,9 @@ const parseMapCoordinates = (location: string) => {
 
 const maskCardLast4 = (cardNumber: string) => cardNumber.replace(/\D/g, "").slice(-4);
 
-const CartPage = ({ onCreateOrder, settings, currentAccount }: CartPageProps) => {
+const CartPage = ({ onCreateOrder, settings, currentAccount, items, onItemsChange }: CartPageProps) => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [items, setItems] = useState<CartItem[]>(loadCartItems());
   const [customer, setCustomer] = useState(currentAccount?.fullName ?? loadAccountNameCookie());
   const [phone, setPhone] = useState(currentAccount?.phone ?? loadAccountPhoneCookie());
   const [address, setAddress] = useState("");
@@ -61,8 +61,7 @@ const CartPage = ({ onCreateOrder, settings, currentAccount }: CartPageProps) =>
 
   const updateQty = (id: number, next: number) => {
     const updated = next <= 0 ? items.filter((item) => item.id !== id) : items.map((item) => (item.id === id ? { ...item, quantity: next } : item));
-    setItems(updated);
-    saveCartItems(updated);
+    onItemsChange(updated);
   };
 
   const maybeSaveLocationCookie = (url: string, label: string) => {
@@ -125,8 +124,7 @@ const CartPage = ({ onCreateOrder, settings, currentAccount }: CartPageProps) =>
       cardToken: paymentMethod === "online" ? btoa(cardNumber.replace(/\D/g, "")) : undefined,
     };
     onCreateOrder(order);
-    setItems([]);
-    saveCartItems([]);
+    onItemsChange([]);
     toast.success("Order sent to payout successfully.");
     navigate("/");
   };

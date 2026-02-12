@@ -12,48 +12,46 @@ import { Language, translations } from "@/lib/i18n";
 import { getProductName } from "@/lib/productLabels";
 import { Order } from "@/types/order";
 import { scrollToId } from "@/lib/scroll";
-import { loadCartItems, saveCartItems } from "@/lib/cartStore";
 import { Offer } from "@/types/offer";
 import { SiteSettings } from "@/types/settings";
+import { UserAccount } from "@/types/account";
 
 interface IndexProps {
   products: Product[];
   offers: Offer[];
   onCreateOrder: (order: Order) => void;
   settings: SiteSettings;
+  currentAccount: UserAccount | null;
+  cartItems: CartItem[];
+  onCartItemsChange: (items: CartItem[]) => void;
 }
 
-const Index = ({ products, offers, onCreateOrder, settings }: IndexProps) => {
-  const [cartItems, setCartItems] = useState<CartItem[]>(loadCartItems());
+const Index = ({ products, offers, onCreateOrder, settings, currentAccount, cartItems, onCartItemsChange }: IndexProps) => {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [language, setLanguage] = useState<Language>("en");
   const [activeCategory, setActiveCategory] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
-    saveCartItems(cartItems);
-  }, [cartItems]);
-
-  useEffect(() => {
     if (searchQuery.trim()) scrollToId("products");
   }, [searchQuery]);
 
   const handleAddToCart = (product: Product) => {
-    setCartItems((prev) => {
-      const existing = prev.find((item) => item.id === product.id);
-      if (existing) return prev.map((item) => (item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item));
-      return [...prev, { ...product, quantity: 1 }];
-    });
+    const existing = cartItems.find((item) => item.id === product.id);
+    const nextItems = existing
+      ? cartItems.map((item) => (item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item))
+      : [...cartItems, { ...product, quantity: 1 }];
+    onCartItemsChange(nextItems);
     toast.success(language === "ar" ? `تمت إضافة ${getProductName(language, product)} إلى السلة!` : `${getProductName(language, product)} added to cart!`);
   };
 
   const handleUpdateQuantity = (id: number, quantity: number) => {
-    if (quantity <= 0) setCartItems((prev) => prev.filter((item) => item.id !== id));
-    else setCartItems((prev) => prev.map((item) => (item.id === id ? { ...item, quantity } : item)));
+    if (quantity <= 0) onCartItemsChange(cartItems.filter((item) => item.id !== id));
+    else onCartItemsChange(cartItems.map((item) => (item.id === id ? { ...item, quantity } : item)));
   };
 
   const handleRemoveItem = (id: number) => {
-    setCartItems((prev) => prev.filter((item) => item.id !== id));
+    onCartItemsChange(cartItems.filter((item) => item.id !== id));
     toast.success(language === "ar" ? "تمت إزالة المنتج من السلة" : "Item removed from cart");
   };
 
@@ -82,9 +80,10 @@ const Index = ({ products, offers, onCreateOrder, settings }: IndexProps) => {
       total,
       date: new Date().toLocaleString(),
       source: "online",
+      accountId: currentAccount?.id,
     };
     onCreateOrder(order);
-    setCartItems([]);
+    onCartItemsChange([]);
     setIsCartOpen(false);
     toast.success(t.cart.orderPlaced);
   };

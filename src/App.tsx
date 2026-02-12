@@ -8,7 +8,7 @@ import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Admin from "./pages/Admin";
 import { products as initialProducts } from "@/data/products";
-import { Product } from "@/types/product";
+import { CartItem, Product } from "@/types/product";
 import { Order } from "@/types/order";
 import { hasRemoteOrdersApi, loadOrders, mergeOrders, pushOrder, saveOrders } from "@/lib/orderStore";
 import { hasRemoteProductsApi, loadProducts, saveProducts } from "@/lib/productStore";
@@ -28,7 +28,8 @@ import { Subscriber } from "@/types/subscriber";
 import { loadSubscribers, saveSubscribers } from "@/lib/subscriberStore";
 import { UserAccount } from "@/types/account";
 import { hasRemoteAccountsApi, loadAccounts, saveAccounts } from "@/lib/accountStore";
-import { loadCurrentAccountId, saveCurrentAccountId } from "@/lib/accountSession";
+import { hasRemoteSessionApi, loadCurrentAccountId, loadCurrentAccountIdRemote, saveCurrentAccountIdRemote } from "@/lib/accountSession";
+import { loadCartItems, saveCartItems } from "@/lib/cartStore";
 
 const queryClient = new QueryClient();
 
@@ -41,6 +42,7 @@ const App = () => {
   const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
   const [accounts, setAccounts] = useState<UserAccount[]>([]);
   const [currentAccountId, setCurrentAccountId] = useState<number | null>(loadCurrentAccountId());
+  const [cartItems, setCartItems] = useState<CartItem[]>(loadCartItems());
   const hasHydratedProducts = useRef(false);
   const isApplyingRemote = useRef(false);
 
@@ -48,7 +50,7 @@ const App = () => {
     let active = true;
 
     const refreshAll = async () => {
-      const [nextProducts, nextOrders, nextOffers, nextSettings, nextNotifications, nextSubscribers, nextAccounts] = await Promise.all([
+      const [nextProducts, nextOrders, nextOffers, nextSettings, nextNotifications, nextSubscribers, nextAccounts, nextSessionAccountId] = await Promise.all([
         loadProducts(initialProducts),
         loadOrders(),
         loadOffers(),
@@ -56,6 +58,7 @@ const App = () => {
         loadNotifications(),
         loadSubscribers(),
         loadAccounts(),
+        loadCurrentAccountIdRemote(),
       ]);
       if (!active) return;
       isApplyingRemote.current = true;
@@ -67,13 +70,14 @@ const App = () => {
       setNotifications(nextNotifications);
       setSubscribers(nextSubscribers);
       setAccounts(nextAccounts);
+      setCurrentAccountId(nextSessionAccountId);
       window.setTimeout(() => {
         isApplyingRemote.current = false;
       }, 0);
     };
 
     void refreshAll();
-    const shouldPoll = hasRemoteOrdersApi() || hasRemoteProductsApi() || hasRemoteOffersApi() || hasRemoteSettingsApi() || hasRemoteNotificationsApi() || hasRemoteAccountsApi();
+    const shouldPoll = hasRemoteOrdersApi() || hasRemoteProductsApi() || hasRemoteOffersApi() || hasRemoteSettingsApi() || hasRemoteNotificationsApi() || hasRemoteAccountsApi() || hasRemoteSessionApi();
     if (!shouldPoll) {
       return () => {
         active = false;
@@ -129,8 +133,34 @@ const App = () => {
   }, [accounts]);
 
   useEffect(() => {
-    saveCurrentAccountId(currentAccountId);
+    void saveCurrentAccountIdRemote(currentAccountId);
   }, [currentAccountId]);
+
+  useEffect(() => {
+    const currentAccount = accounts.find((account) => account.id === currentAccountId) ?? null;
+    if (currentAccount) {
+      setCartItems(currentAccount.cartItems ?? []);
+      return;
+    }
+    setCartItems(loadCartItems());
+  }, [accounts, currentAccountId]);
+
+  useEffect(() => {
+    const currentAccount = accounts.find((account) => account.id === currentAccountId) ?? null;
+    if (currentAccount) {
+      if (isApplyingRemote.current) return;
+      const currentCartSerialized = JSON.stringify(currentAccount.cartItems ?? []);
+      const nextCartSerialized = JSON.stringify(cartItems);
+      if (currentCartSerialized === nextCartSerialized) return;
+      setAccounts((prev) =>
+        prev.map((account) =>
+          account.id === currentAccount.id ? { ...account, cartItems } : account
+        )
+      );
+      return;
+    }
+    saveCartItems(cartItems);
+  }, [cartItems, accounts, currentAccountId]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !products.length || !orders.length) {
@@ -235,6 +265,7 @@ const App = () => {
         const hasCard = shouldSaveCard && account.savedCards.some((card) => card.last4 === order.cardLast4);
         return {
           ...account,
+          cartItems: accountMatches ? [] : account.cartItems,
           paymentHistory,
           savedCards:
             shouldSaveCard && !hasCard
@@ -273,10 +304,10 @@ const App = () => {
         <Sonner />
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<Index products={products} offers={offers} onCreateOrder={handleCreateOrder} settings={settings} />} />
-            <Route path="/products/:category" element={<ProductsPage products={products} onCreateOrder={handleCreateOrder} />} />
-            <Route path="/products" element={<ProductsPage products={products} onCreateOrder={handleCreateOrder} />} />
-            <Route path="/cart" element={<CartPage onCreateOrder={handleCreateOrder} settings={settings} currentAccount={accounts.find((a) => a.id === currentAccountId) ?? null} />} />
+            <Route path="/" element={<Index products={products} offers={offers} onCreateOrder={handleCreateOrder} settings={settings} currentAccount={accounts.find((a) => a.id === currentAccountId) ?? null} cartItems={cartItems} onCartItemsChange={setCartItems} />} />
+            <Route path="/products/:category" element={<ProductsPage products={products} onCreateOrder={handleCreateOrder} currentAccount={accounts.find((a) => a.id === currentAccountId) ?? null} cartItems={cartItems} onCartItemsChange={setCartItems} />} />
+            <Route path="/products" element={<ProductsPage products={products} onCreateOrder={handleCreateOrder} currentAccount={accounts.find((a) => a.id === currentAccountId) ?? null} cartItems={cartItems} onCartItemsChange={setCartItems} />} />
+            <Route path="/cart" element={<CartPage onCreateOrder={handleCreateOrder} settings={settings} currentAccount={accounts.find((a) => a.id === currentAccountId) ?? null} items={cartItems} onItemsChange={setCartItems} />} />
             <Route
               path="/admin/*"
               element={

@@ -6,6 +6,7 @@ import { UserAccount, customerPermissions } from "@/types/account";
 import { SiteSettings } from "@/types/settings";
 import { toast } from "sonner";
 import { saveAccountHintCookies, saveLocationCookie } from "@/lib/cookies";
+import { createAccount } from "@/lib/accountStore";
 
 interface AccountRegisterPageProps {
   accounts: UserAccount[];
@@ -23,9 +24,21 @@ const AccountRegisterPage = ({ accounts, onAccountsChange, settings, onCurrentAc
   const [locationUrl, setLocationUrl] = useState("");
   const navigate = useNavigate();
 
-  const register = () => {
+  const register = async () => {
     if (!fullName.trim() || (!email.trim() && !phone.trim())) {
       toast.error("Enter full name and either email or phone.");
+      return;
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedPhone = phone.trim().replace(/\D/g, "");
+    const duplicate = accounts.some((account) => {
+      const sameEmail = normalizedEmail && account.email.trim().toLowerCase() === normalizedEmail;
+      const samePhone = normalizedPhone && account.phone.replace(/\D/g, "") === normalizedPhone;
+      return sameEmail || samePhone;
+    });
+    if (duplicate) {
+      toast.error("Account already exists for this email or phone. Please log in.");
       return;
     }
 
@@ -33,7 +46,7 @@ const AccountRegisterPage = ({ accounts, onAccountsChange, settings, onCurrentAc
     const next: UserAccount = {
       id: Date.now(),
       fullName: fullName.trim(),
-      email: email.trim().toLowerCase(),
+      email: normalizedEmail,
       phone: phone.trim(),
       role: "customer",
       verified: !smsEnabled,
@@ -44,7 +57,8 @@ const AccountRegisterPage = ({ accounts, onAccountsChange, settings, onCurrentAc
       savedCards: [],
     };
 
-    onAccountsChange([next, ...accounts]);
+    const syncedAccounts = await createAccount(next);
+    onAccountsChange(syncedAccounts);
     onCurrentAccountChange(next.id);
     saveAccountHintCookies(next.fullName, next.phone);
     setShowLocationPopup(true);

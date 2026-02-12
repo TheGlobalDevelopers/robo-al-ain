@@ -8,16 +8,19 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Order } from "@/types/order";
 import { toast } from "sonner";
 import CartDrawer from "@/components/CartDrawer";
+import { UserAccount } from "@/types/account";
 
 interface ProductsPageProps {
   products: Product[];
   onCreateOrder: (order: Order) => void;
+  currentAccount: UserAccount | null;
+  cartItems: CartItem[];
+  onCartItemsChange: (items: CartItem[]) => void;
 }
 
-const ProductsPage = ({ products, onCreateOrder }: ProductsPageProps) => {
+const ProductsPage = ({ products, onCreateOrder, currentAccount, cartItems, onCartItemsChange }: ProductsPageProps) => {
   const [language, setLanguage] = useState<Language>("en");
   const [searchQuery, setSearchQuery] = useState("");
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const params = useParams();
   const navigate = useNavigate();
@@ -33,11 +36,11 @@ const ProductsPage = ({ products, onCreateOrder }: ProductsPageProps) => {
   }, [products, category, searchQuery]);
 
   const handleAddToCart = (product: Product) => {
-    setCartItems((prev) => {
-      const found = prev.find((item) => item.id === product.id);
-      if (found) return prev.map((item) => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item);
-      return [...prev, { ...product, quantity: 1 }];
-    });
+    const found = cartItems.find((item) => item.id === product.id);
+    const nextItems = found
+      ? cartItems.map((item) => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item)
+      : [...cartItems, { ...product, quantity: 1 }];
+    onCartItemsChange(nextItems);
     toast.success(`${product.name} added to cart`);
   };
 
@@ -71,8 +74,8 @@ const ProductsPage = ({ products, onCreateOrder }: ProductsPageProps) => {
         isOpen={isCartOpen}
         onClose={() => setIsCartOpen(false)}
         items={cartItems}
-        onUpdateQuantity={(id, quantity) => setCartItems((prev) => prev.map((item) => item.id === id ? { ...item, quantity } : item).filter((i) => i.quantity > 0))}
-        onRemoveItem={(id) => setCartItems((prev) => prev.filter((item) => item.id !== id))}
+        onUpdateQuantity={(id, quantity) => onCartItemsChange(cartItems.map((item) => item.id === id ? { ...item, quantity } : item).filter((i) => i.quantity > 0))}
+        onRemoveItem={(id) => onCartItemsChange(cartItems.filter((item) => item.id !== id))}
         language={language}
         onCheckout={({ customer, phone, address, paymentMethod, fulfillment }) => {
           if (!cartItems.length) return;
@@ -88,8 +91,9 @@ const ProductsPage = ({ products, onCreateOrder }: ProductsPageProps) => {
             total,
             date: new Date().toLocaleString(),
             source: "online",
+            accountId: currentAccount?.id,
           });
-          setCartItems([]);
+          onCartItemsChange([]);
         }}
       />
     </div>
