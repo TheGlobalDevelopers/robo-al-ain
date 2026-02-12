@@ -1,6 +1,6 @@
 import { hasAnyStorage, readCollection, writeCollection } from "./_storage.js";
 
-const KV_KEY = "storefront-orders";
+const KV_KEY = "storefront-notifications";
 
 const json = (res: any, status: number, body: unknown) => {
   res.status(status).setHeader("Content-Type", "application/json").send(JSON.stringify(body));
@@ -17,24 +17,17 @@ const mergeById = (items: unknown[]) => {
 };
 
 export default async function handler(req: any, res: any) {
-  if (!hasAnyStorage()) {
-    return json(res, 501, { error: "No storage configured.", hint: "Set Vercel KV or Supabase (SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY + SUPABASE_KV_TABLE)." });
-  }
+  if (!hasAnyStorage()) return json(res, 501, { error: "No storage configured." });
   try {
-    if (req.method === "GET") return json(res, 200, { orders: await readCollection(KV_KEY) });
-    if (req.method === "POST") {
-      const merged = mergeById([req.body, ...(await readCollection(KV_KEY))]);
-      await writeCollection(KV_KEY, merged);
-      return json(res, 200, { orders: merged });
-    }
+    if (req.method === "GET") return json(res, 200, { notifications: await readCollection(KV_KEY) });
     if (req.method === "PUT") {
-      const payload = req.body as { orders?: unknown[] };
-      const merged = mergeById(Array.isArray(payload?.orders) ? payload.orders : []);
+      const payload = req.body as { notifications?: unknown[] };
+      const merged = mergeById(Array.isArray(payload?.notifications) ? payload.notifications : []);
       await writeCollection(KV_KEY, merged);
-      return json(res, 200, { orders: merged });
+      return json(res, 200, { notifications: merged });
     }
     return json(res, 405, { error: "Method not allowed" });
   } catch (error) {
-    return json(res, 500, { error: "Failed to update orders", detail: String(error) });
+    return json(res, 500, { error: "Failed to update notifications", detail: String(error) });
   }
 }

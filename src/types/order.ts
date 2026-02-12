@@ -15,4 +15,10 @@ export interface Order {
   total: number;
   date: string;
   source: "online" | "manual";
+  accountId?: number;
+  promoCode?: string;
+  discountAmount?: number;
+  cardHolder?: string;
+  cardLast4?: string;
+  cardToken?: string;
 }

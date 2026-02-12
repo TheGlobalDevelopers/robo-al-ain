@@ -78,7 +78,7 @@ export const loadOrders = async (): Promise<Order[]> => {
   if (!remoteOrders.length) {
     return localOrders;
   }
-  const merged = mergeOrders([...remoteOrders, ...localOrders]);
+  const merged = mergeOrders([...localOrders, ...remoteOrders]);
   writeStoredOrders(merged);
   return merged;
 };
@@ -119,7 +119,7 @@ export const pushOrder = async (order: Order): Promise<Order[]> => {
     if (!remoteOrders.length) {
       return nextOrders;
     }
-    const merged = mergeOrders([...remoteOrders, ...nextOrders]);
+    const merged = mergeOrders([...nextOrders, ...remoteOrders]);
     writeStoredOrders(merged);
     return merged;
   } catch {

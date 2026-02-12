@@ -12,49 +12,44 @@ import { Language, translations } from "@/lib/i18n";
 import { getProductName } from "@/lib/productLabels";
 import { Order } from "@/types/order";
 import { scrollToId } from "@/lib/scroll";
+import { loadCartItems, saveCartItems } from "@/lib/cartStore";
+import { Offer } from "@/types/offer";
+import { SiteSettings } from "@/types/settings";
+
 interface IndexProps {
   products: Product[];
+  offers: Offer[];
   onCreateOrder: (order: Order) => void;
+  settings: SiteSettings;
 }
 
-const Index = ({ products, onCreateOrder }: IndexProps) => {
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+const Index = ({ products, offers, onCreateOrder, settings }: IndexProps) => {
+  const [cartItems, setCartItems] = useState<CartItem[]>(loadCartItems());
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [language, setLanguage] = useState<Language>("en");
   const [activeCategory, setActiveCategory] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
-    if (searchQuery.trim()) {
-      scrollToId("products");
-    }
+    saveCartItems(cartItems);
+  }, [cartItems]);
+
+  useEffect(() => {
+    if (searchQuery.trim()) scrollToId("products");
   }, [searchQuery]);
 
   const handleAddToCart = (product: Product) => {
     setCartItems((prev) => {
       const existing = prev.find((item) => item.id === product.id);
-      if (existing) {
-        return prev.map((item) =>
-          item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
-        );
-      }
+      if (existing) return prev.map((item) => (item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item));
       return [...prev, { ...product, quantity: 1 }];
     });
-    toast.success(
-      language === "ar"
-        ? `تمت إضافة ${getProductName(language, product)} إلى السلة!`
-        : `${getProductName(language, product)} added to cart!`
-    );
+    toast.success(language === "ar" ? `تمت إضافة ${getProductName(language, product)} إلى السلة!` : `${getProductName(language, product)} added to cart!`);
   };
 
   const handleUpdateQuantity = (id: number, quantity: number) => {
-    if (quantity <= 0) {
-      setCartItems((prev) => prev.filter((item) => item.id !== id));
-    } else {
-      setCartItems((prev) =>
-        prev.map((item) => (item.id === id ? { ...item, quantity } : item))
-      );
-    }
+    if (quantity <= 0) setCartItems((prev) => prev.filter((item) => item.id !== id));
+    else setCartItems((prev) => prev.map((item) => (item.id === id ? { ...item, quantity } : item)));
   };
 
   const handleRemoveItem = (id: number) => {
@@ -72,9 +67,7 @@ const Index = ({ products, onCreateOrder }: IndexProps) => {
     paymentMethod: "online" | "cod";
     fulfillment: "delivery" | "pickup";
   }) => {
-    if (!cartItems.length) {
-      return;
-    }
+    if (!cartItems.length) return;
     const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
     const deliveryFee = payload.fulfillment === "delivery" && subtotal < 100 ? 15 : 0;
     const total = subtotal + deliveryFee;
@@ -85,11 +78,7 @@ const Index = ({ products, onCreateOrder }: IndexProps) => {
       address: payload.address,
       paymentMethod: payload.paymentMethod,
       fulfillment: payload.fulfillment,
-      items: cartItems.map((item) => ({
-        name: getProductName(language, item),
-        quantity: item.quantity,
-        price: item.price,
-      })),
+      items: cartItems.map((item) => ({ name: getProductName(language, item), quantity: item.quantity, price: item.price })),
       total,
       date: new Date().toLocaleString(),
       source: "online",
@@ -106,31 +95,23 @@ const Index = ({ products, onCreateOrder }: IndexProps) => {
         cartCount={cartCount}
         onCartClick={() => setIsCartOpen(true)}
         language={language}
-        onToggleLanguage={() =>
-          setLanguage((prev) => (prev === "en" ? "ar" : "en"))
-        }
+        onToggleLanguage={() => setLanguage((prev) => (prev === "en" ? "ar" : "en"))}
         onCategorySelect={(category) => setActiveCategory(category)}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
       />
       <Hero language={language} />
-      <Categories
-        language={language}
-        onCategorySelect={(category) => setActiveCategory(category)}
-      />
-      <DealsSection products={products} onAddToCart={handleAddToCart} language={language} />
+      <Categories language={language} onCategorySelect={(category) => setActiveCategory(category)} />
+      <DealsSection products={products} offers={offers} onAddToCart={handleAddToCart} language={language} settings={settings} />
       <ProductGrid
-        products={products}
+        products={products.filter((product) => product.rating >= 4.6)}
         onAddToCart={handleAddToCart}
         language={language}
         activeTab={activeCategory}
         onTabChange={(category) => setActiveCategory(category)}
         searchQuery={searchQuery}
       />
-      <Footer
-        language={language}
-        onCategorySelect={(category) => setActiveCategory(category)}
-      />
+      <Footer language={language} onCategorySelect={(category) => setActiveCategory(category)} products={products} />
       <CartDrawer
         isOpen={isCartOpen}
         onClose={() => setIsCartOpen(false)}

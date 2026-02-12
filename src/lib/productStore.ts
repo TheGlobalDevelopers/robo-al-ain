@@ -78,7 +78,7 @@ export const loadProducts = async (fallback: Product[]): Promise<Product[]> => {
   if (!remoteProducts.length) {
     return localProducts;
   }
-  const merged = mergeProducts([...remoteProducts, ...localProducts]);
+  const merged = mergeProducts([...localProducts, ...remoteProducts]);
   writeStoredProducts(merged);
   return merged;
 };
@@ -89,11 +89,17 @@ export const saveProducts = async (products: Product[]) => {
     return;
   }
   try {
-    await fetch(PRODUCTS_API_URL, {
+    const response = await fetch(PRODUCTS_API_URL, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ products }),
     });
+    if (!response.ok) return;
+    const data = (await response.json()) as Product[] | ProductsApiResponse;
+    const remote = parseProductsResponse(data);
+    if (!remote.length) return;
+    const merged = mergeProducts([...products, ...remote]);
+    writeStoredProducts(merged);
   } catch {
     // Ignore network errors; local storage already updated.
   }
