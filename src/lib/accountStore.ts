@@ -58,10 +58,15 @@ export const saveAccounts = async (accounts: UserAccount[]) => {
   writeLocal(accounts);
   if (!API_URL) return;
   try {
+    const remoteResponse = await fetch(API_URL, { cache: "no-store" });
+    const remoteData = remoteResponse.ok ? ((await remoteResponse.json()) as UserAccount[] | AccountsApiResponse) : [];
+    const remoteAccounts = parseResponse(remoteData);
+    const merged = mergeAccounts([...accounts, ...remoteAccounts]);
+    writeLocal(merged);
     await fetch(API_URL, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ accounts }),
+      body: JSON.stringify({ accounts: merged }),
     });
   } catch {
     // keep local data
